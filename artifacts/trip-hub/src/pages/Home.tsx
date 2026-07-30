@@ -153,8 +153,15 @@ export default function Home() {
 
   const settings: Record<string, string> = (settingsData as Record<string, string>) || {};
 
-  const heroPhotos: string[] = settings.group_photos ? JSON.parse(settings.group_photos) : [];
+  const destinationPhotos: string[] = settings.destination_photos ? JSON.parse(settings.destination_photos) : [];
+  const groupPhotos: string[] = settings.group_photos ? JSON.parse(settings.group_photos) : [];
   const birthdayPhotos: string[] = settings.birthday_photos ? JSON.parse(settings.birthday_photos) : [];
+  // Hero uses destination (landscape) photos; fall back to group photos if none set
+  const heroPhotos = destinationPhotos.length > 0 ? destinationPhotos : groupPhotos;
+  // Combined people strip: group + birthday photos deduped
+  const peoplePhotos = [...groupPhotos, ...birthdayPhotos].filter(
+    (src, i, arr) => arr.indexOf(src) === i
+  );
 
   const [heroIndex, setHeroIndex] = useState(0);
   useEffect(() => {
@@ -487,8 +494,8 @@ export default function Home() {
           </Card>
         </motion.div>
 
-        {/* Birthday photos */}
-        {birthdayPhotos.length > 0 && (
+        {/* Group + individual photos */}
+        {peoplePhotos.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -497,19 +504,20 @@ export default function Home() {
           >
             <div className="flex items-end justify-between mb-3 px-0.5">
               <div>
-                <p className="text-[10px] font-bold text-ink-900/30 tracking-[0.18em] uppercase mb-0.5">The guest of honor</p>
+                <p className="text-[10px] font-bold text-ink-900/30 tracking-[0.18em] uppercase mb-0.5">The crew</p>
                 <h2 className="font-display text-xl font-medium text-ink-950">Celebrating Jordan</h2>
               </div>
               <PartyPopper className="h-5 w-5 text-papaya-500 mb-0.5" />
             </div>
             <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 -mx-5 px-5">
-              {birthdayPhotos.map((src, i) => (
+              {peoplePhotos.map((src, i) => (
                 <motion.img
                   key={src}
                   src={src}
                   whileTap={{ scale: 0.95 }}
                   className="h-52 w-40 object-cover rounded-2xl shrink-0 shadow-card"
-                  alt={`Jordan — photo ${i + 1}`}
+                  style={{ objectPosition: "top center" }}
+                  alt={`Photo ${i + 1}`}
                 />
               ))}
             </div>
