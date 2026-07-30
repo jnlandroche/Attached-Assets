@@ -21,7 +21,7 @@ export function ImageCarousel({ images, priority = false }: { images: string[]; 
           {images.map((src, index) => (
             <div className="flex-[0_0_100%] min-w-0 relative" key={index}>
               <img
-                src={src.startsWith('http') ? src : `${import.meta.env.BASE_URL.replace(/\/$/, '')}/api${src}`}
+                src={src}
                 alt={`Slide ${index + 1}`}
                 className="w-full h-full object-cover"
                 loading={priority && index === 0 ? "eager" : "lazy"}

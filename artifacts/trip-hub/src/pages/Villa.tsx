@@ -70,7 +70,7 @@ export default function Villa() {
                 {room.photoUrl ? (
                   <div className="w-full h-40 bg-sand-200">
                     <img 
-                      src={room.photoUrl.startsWith('http') ? room.photoUrl : `${import.meta.env.BASE_URL.replace(/\/$/, '')}/api${room.photoUrl}`}
+                      src={room.photoUrl}
                       alt={room.name} 
                       className="w-full h-full object-cover" 
                     />

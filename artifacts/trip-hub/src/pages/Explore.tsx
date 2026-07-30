@@ -80,7 +80,7 @@ export default function Explore() {
                     {entry.photoUrl && (
                       <div className="w-full h-48 bg-sand-200">
                         <img 
-                          src={entry.photoUrl.startsWith('http') ? entry.photoUrl : `${import.meta.env.BASE_URL.replace(/\/$/, '')}/api${entry.photoUrl}`}
+                          src={entry.photoUrl}
                           alt={entry.name} 
                           className="w-full h-full object-cover" 
                         />

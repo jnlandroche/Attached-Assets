@@ -157,7 +157,7 @@ export default function Money() {
                 <div className="w-12 h-12 rounded-xl bg-sand-100 flex items-center justify-center shrink-0 text-ink-700 overflow-hidden">
                   {exp.receiptUrl ? (
                     <img 
-                      src={exp.receiptUrl.startsWith('http') ? exp.receiptUrl : `${import.meta.env.BASE_URL.replace(/\/$/, '')}/api${exp.receiptUrl}`} 
+                      src={exp.receiptUrl}
                       alt="Receipt" 
                       className="w-full h-full object-cover" 
                     />

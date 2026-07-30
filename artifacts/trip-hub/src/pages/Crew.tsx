@@ -43,7 +43,7 @@ export default function Crew() {
               {household.photoUrl ? (
                 <div className="w-full h-48 bg-sand-200">
                   <img 
-                    src={household.photoUrl.startsWith('http') ? household.photoUrl : `${import.meta.env.BASE_URL.replace(/\/$/, '')}/api${household.photoUrl}`}
+                    src={household.photoUrl}
                     alt={household.name} 
                     className="w-full h-full object-cover" 
                   />
