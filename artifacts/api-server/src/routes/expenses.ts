@@ -283,7 +283,49 @@ router.get("/balances", async (_req, res): Promise<void> => {
 });
 
 router.get("/settlements/recommendations", async (_req, res): Promise<void> => {
-  const { hh, net } = await computeBalances();
+  // Use PAID expenses only for settlement math.
+  // Unpaid expenses (paidByHouseholdId = null) add shares to everyone but
+  // credit nobody, so net balances don't sum to zero and the min-transaction
+  // algorithm runs out of creditors before reaching all debtors.
+  const hh = await db.select().from(households);
+  const allExpenses = await db.select().from(expenses);
+  const allShares = await db.select().from(expenseShares);
+  const allSettlements = await db
+    .select()
+    .from(settlements)
+    .where(eq(settlements.status, "paid"));
+
+  const paidExpenseIds = new Set(
+    allExpenses.filter((e) => e.paidByHouseholdId != null).map((e) => e.id)
+  );
+
+  const totals: Record<number, { paid: number; share: number }> = {};
+  for (const h of hh) totals[h.id] = { paid: 0, share: 0 };
+
+  for (const e of allExpenses) {
+    if (e.paidByHouseholdId && totals[e.paidByHouseholdId]) {
+      totals[e.paidByHouseholdId].paid += Number(e.totalAmount);
+    }
+  }
+
+  for (const s of allShares) {
+    if (paidExpenseIds.has(s.expenseId) && totals[s.householdId]) {
+      totals[s.householdId].share += Number(s.shareAmount);
+    }
+  }
+
+  for (const s of allSettlements) {
+    const amount = Number(s.amount);
+    if (totals[s.fromHouseholdId]) totals[s.fromHouseholdId].paid += amount;
+    if (totals[s.toHouseholdId]) totals[s.toHouseholdId].paid -= amount;
+  }
+
+  const net = hh.map((h) => ({
+    id: h.id,
+    name: h.name,
+    amount: (totals[h.id]?.paid ?? 0) - (totals[h.id]?.share ?? 0),
+  }));
+
   const nameById = Object.fromEntries(hh.map((h) => [h.id, h.name]));
   const recs = minimumTransactions(net, nameById);
   const pending = await db

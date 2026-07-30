@@ -426,13 +426,23 @@ function LedgerSection({
                         {shares.map((s) => {
                           const hh = households.find((h) => h.id === s.householdId);
                           const isPayerRow = s.householdId === e.paidByHouseholdId;
+                          // Also mark ✓ if this household has made any paid settlement
+                          // payment to the expense payer — they're paying them back.
+                          const hasSettledWithPayer = !isPayerRow && !!e.paidByHouseholdId &&
+                            settlements.some(
+                              (st: any) =>
+                                st.status === "paid" &&
+                                st.fromHouseholdId === s.householdId &&
+                                st.toHouseholdId === e.paidByHouseholdId
+                            );
+                          const isSettled = isPayerRow || hasSettledWithPayer;
                           return (
                             <div key={s.householdId} className="flex items-center justify-between">
-                              <span className={`text-[11px] truncate mr-1 ${isPayerRow ? "font-semibold text-ink-700" : "text-ink-400"}`}>
+                              <span className={`text-[11px] truncate mr-1 ${isSettled ? "font-semibold text-ink-700" : "text-ink-400"}`}>
                                 {hh?.name?.split(" & ")[0] ?? "—"}
-                                {isPayerRow && " ✓"}
+                                {isSettled && " ✓"}
                               </span>
-                              <span className={`text-[11px] tabular-nums shrink-0 ${isPayerRow ? "font-bold text-lagoon-600" : "text-ink-500"}`}>
+                              <span className={`text-[11px] tabular-nums shrink-0 ${isSettled ? "font-bold text-lagoon-600" : "text-ink-500"}`}>
                                 {fmt$(Number(s.shareAmount))}
                               </span>
                             </div>
