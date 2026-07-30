@@ -497,8 +497,10 @@ export default function Home() {
               <div className="h-3 w-36 rounded-full bg-white/20 animate-pulse" />
             </motion.div>
           ) : (() => {
+            // Use the reactive countdown hook value so the pill stays accurate
+            // after midnight without a page reload (countdown ticks every second).
             const daysUntilTrip = checkIn
-              ? Math.ceil((new Date(checkIn + "T00:00:00").getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+              ? (countdown.past ? 0 : countdown.days)
               : Infinity;
             const useLive = weatherData?.source === "live" && (weatherData.days?.length ?? 0) > 0 && daysUntilTrip <= 10;
             const todayDay = useLive
