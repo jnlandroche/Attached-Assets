@@ -1,11 +1,10 @@
 import { Link, useLocation } from "wouter";
-import { Home, Palmtree, Users, Wallet, Plane, Compass, Calendar, Info } from "lucide-react";
+import { Home, Palmtree, Wallet, Plane, Compass, Calendar, Info } from "lucide-react";
 import { motion } from "framer-motion";
 
 const tabs = [
   { id: "home", path: "/", icon: Home, label: "Home" },
   { id: "villa", path: "/villa", icon: Palmtree, label: "Villa" },
-  { id: "crew", path: "/crew", icon: Users, label: "Crew" },
   { id: "money", path: "/money", icon: Wallet, label: "Money" },
   { id: "travel", path: "/travel", icon: Plane, label: "Travel" },
   { id: "explore", path: "/explore", icon: Compass, label: "Explore" },

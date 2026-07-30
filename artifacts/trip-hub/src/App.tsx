@@ -6,7 +6,6 @@ import { BottomNav } from '@/components/layout/BottomNav';
 
 import Home from '@/pages/Home';
 import Villa from '@/pages/Villa';
-import Crew from '@/pages/Crew';
 import Money from '@/pages/Money';
 import Travel from '@/pages/Travel';
 import Explore from '@/pages/Explore';
@@ -28,7 +27,6 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/villa" component={Villa} />
-        <Route path="/crew" component={Crew} />
         <Route path="/money" component={Money} />
         <Route path="/travel" component={Travel} />
         <Route path="/explore" component={Explore} />

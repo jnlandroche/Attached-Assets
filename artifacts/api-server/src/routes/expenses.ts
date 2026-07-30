@@ -101,6 +101,8 @@ router.post("/expenses", async (req, res): Promise<void> => {
     .insert(expenses)
     .values({
       ...expenseData,
+      totalAmount: String(expenseData.totalAmount ?? 0),
+      allocationMethod: expenseData.allocationMethod ?? "custom",
       participantHouseholdIds: JSON.stringify(participantHouseholdIds ?? []),
     })
     .returning();
