@@ -26,8 +26,12 @@ function WeatherForecast({ data }: { data: WeatherData | null }) {
 
   const rangeMin = Math.min(...days.map(d => d.low));
   const rangeMax = Math.max(...days.map(d => d.high));
-  const allHighs = days.map(d => d.high);
-  void allHighs; // keep same shape as before
+  const isLive = source === "live";
+
+  const headerLow  = Math.min(...days.map(d => d.low));
+  const headerHigh = Math.max(...days.map(d => d.high));
+  const headerRange = isLive ? `${headerLow}–${headerHigh}°F` : "85–88°F";
+  const headerSub   = isLive ? "live forecast" : "historical averages";
 
   return (
     <div className="bg-white rounded-3xl shadow-card overflow-hidden">
@@ -38,11 +42,11 @@ function WeatherForecast({ data }: { data: WeatherData | null }) {
           <div>
             <p className="text-[10px] font-bold text-lagoon-700/60 tracking-[0.18em] uppercase mb-0.5">Weather</p>
             <h2 className="font-display text-xl font-medium text-ink-950">October Outlook</h2>
-            <p className="text-[11px] text-ink-900/40 mt-0.5">St. John, USVI · historical averages</p>
+            <p className="text-[11px] text-ink-900/40 mt-0.5">St. John, USVI · {headerSub}</p>
           </div>
           <div className="text-right mt-1">
-            <p className="text-[13px] font-bold text-lagoon-600">85–88°F</p>
-            <p className="text-[11px] text-ink-900/40">avg range</p>
+            <p className="text-[13px] font-bold text-lagoon-600">{headerRange}</p>
+            <p className="text-[11px] text-ink-900/40">{isLive ? "forecast range" : "avg range"}</p>
           </div>
         </div>
       </div>
@@ -57,7 +61,7 @@ function WeatherForecast({ data }: { data: WeatherData | null }) {
           const isLast  = i === days.length - 1;
           return (
             <div
-              key={day.date}
+              key={`${day.dow}-${day.date}`}
               className={`flex-shrink-0 flex flex-col items-center px-3 py-4 gap-1.5 min-w-[4.2rem]
                 ${isFirst ? "" : "border-l border-ink-900/[0.05]"}
                 ${isFirst ? "bg-lagoon-600/[0.04]" : ""}
@@ -107,7 +111,7 @@ function WeatherForecast({ data }: { data: WeatherData | null }) {
           💧 Rain % · 🌡️ High / Low
         </p>
         <p className="text-[10px] text-ink-900/30">
-          {source === "live" ? "Live forecast" : "Actual forecast ~Oct 7"}
+          {isLive ? "Live forecast" : "Actual forecast ~Oct 7"}
         </p>
       </div>
     </div>
@@ -645,3 +649,4 @@ export default function Home() {
     </div>
   );
 }
+

@@ -41,7 +41,7 @@ router.get("/weather", async (_req, res): Promise<void> => {
   const msPerDay = 1000 * 60 * 60 * 24;
   const daysUntilTrip = Math.floor((TRIP_START.getTime() - now.getTime()) / msPerDay);
 
-  // Only fetch live forecast when the trip is within Open-Meteo's 16-day window
+  // Only fetch live forecast when the trip is within 10 days
   if (daysUntilTrip > 10) {
     res.json({ source: "historical", days: HISTORICAL_DAYS });
     return;
@@ -64,7 +64,7 @@ router.get("/weather", async (_req, res): Promise<void> => {
         time: string[];
         temperature_2m_max: number[];
         temperature_2m_min: number[];
-        precipitation_probability_max: number[];
+        precipitation_probability_max: (number | null)[];
         weathercode: number[];
       };
     };
