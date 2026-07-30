@@ -323,7 +323,7 @@ export default function Home() {
     <div className="pb-10">
 
       {/* ── HERO ── */}
-      <div className="relative h-[75vh] min-h-[520px] overflow-hidden">
+      <div className="relative h-[62vh] min-h-[460px] max-h-[600px] overflow-hidden">
         {/* Photo stack */}
         {heroPhotos.length > 0 ? heroPhotos.map((src, i) => (
           <motion.img
@@ -338,9 +338,9 @@ export default function Home() {
           <div className="absolute inset-0 bg-ink-950" />
         )}
 
-        {/* Gradient layers */}
-        <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/50 to-ink-950/15" />
-        <div className="absolute inset-0 bg-gradient-to-b from-ink-950/40 via-transparent to-transparent" />
+        {/* Gradient layers — strong enough for legibility on any photo */}
+        <div className="absolute inset-0 bg-gradient-to-t from-ink-950/95 via-ink-950/55 to-ink-950/20" />
+        <div className="absolute inset-0 bg-gradient-to-b from-ink-950/50 via-transparent to-transparent" />
 
         {/* Hero content */}
         <div className="relative h-full flex flex-col justify-end px-5 pb-9 gap-0">

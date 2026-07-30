@@ -1,24 +1,103 @@
-import { useListItineraryItems, useCreateItineraryItem, useDeleteItineraryItem, useUpdateItineraryItem, getListItineraryItemsQueryKey } from "@workspace/api-client-react";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { Sun, Sunset, Moon, Utensils, Sailboat, Map, Plus, MoreVertical, Trash2 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  useListItineraryItems, useCreateItineraryItem, useDeleteItineraryItem,
+  useUpdateItineraryItem, getListItineraryItemsQueryKey,
+} from "@workspace/api-client-react";
+import {
+  Sun, Sunset, Moon, Utensils, Sailboat, Map, Plus, Trash2,
+  Pencil, PlaneLanding, PlaneTakeoff, Anchor, Bike, PartyPopper,
+} from "lucide-react";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
-import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-const getCategoryIcon = (cat?: string | null) => {
-  switch (cat) {
-    case 'morning': return <Sun className="w-5 h-5 text-brass-500" />;
-    case 'afternoon': return <Sun className="w-5 h-5 text-papaya-500" />;
-    case 'evening': return <Sunset className="w-5 h-5 text-hibiscus-500" />;
-    case 'night': return <Moon className="w-5 h-5 text-ink-700" />;
-    case 'food': return <Utensils className="w-5 h-5 text-lagoon-600" />;
-    case 'boat': return <Sailboat className="w-5 h-5 text-lagoon-600" />;
-    case 'explore': return <Map className="w-5 h-5 text-brass-600" />;
-    default: return <div className="w-2 h-2 rounded-full bg-ink-300" />;
-  }
+const ease = [0.22, 1, 0.36, 1] as const;
+
+// ── All 8 trip days ───────────────────────────────────────────────────────────
+const TRIP_DAYS = [
+  { label: "Day 1 — Arrival",  shortLabel: "Day 1",  date: "Oct 17", dow: "Fri", icon: PlaneLanding,  color: "text-lagoon-600"  },
+  { label: "Day 2",            shortLabel: "Day 2",  date: "Oct 18", dow: "Sat", icon: Sun,           color: "text-brass-500"   },
+  { label: "Day 3",            shortLabel: "Day 3",  date: "Oct 19", dow: "Sun", icon: Sailboat,      color: "text-lagoon-600"  },
+  { label: "Day 4",            shortLabel: "Day 4",  date: "Oct 20", dow: "Mon", icon: Anchor,        color: "text-papaya-500"  },
+  { label: "Day 5",            shortLabel: "Day 5",  date: "Oct 21", dow: "Tue", icon: Bike,          color: "text-lagoon-600"  },
+  { label: "Day 6",            shortLabel: "Day 6",  date: "Oct 22", dow: "Wed", icon: PartyPopper,   color: "text-hibiscus-500"},
+  { label: "Day 7",            shortLabel: "Day 7",  date: "Oct 23", dow: "Thu", icon: Sun,           color: "text-brass-500"   },
+  { label: "Final Day",        shortLabel: "Final",  date: "Oct 24", dow: "Fri", icon: PlaneTakeoff,  color: "text-papaya-500"  },
+];
+
+// ── Category config ───────────────────────────────────────────────────────────
+const CATEGORY_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
+  morning:  { icon: Sun,          color: "text-brass-500",    bg: "bg-brass-50"     },
+  afternoon:{ icon: Sun,          color: "text-papaya-500",   bg: "bg-papaya-50"    },
+  evening:  { icon: Sunset,       color: "text-hibiscus-500", bg: "bg-hibiscus-50"  },
+  night:    { icon: Moon,         color: "text-ink-700",      bg: "bg-ink-100"      },
+  food:     { icon: Utensils,     color: "text-lagoon-600",   bg: "bg-lagoon-50"    },
+  boat:     { icon: Sailboat,     color: "text-lagoon-600",   bg: "bg-lagoon-50"    },
+  beach:    { icon: Anchor,       color: "text-lagoon-600",   bg: "bg-lagoon-50"    },
+  activity: { icon: Bike,         color: "text-papaya-500",   bg: "bg-papaya-50"    },
+  explore:  { icon: Map,          color: "text-brass-600",    bg: "bg-brass-50"     },
+  arrival:  { icon: PlaneLanding, color: "text-lagoon-600",   bg: "bg-lagoon-50"    },
+  general:  { icon: Sun,          color: "text-ink-400",      bg: "bg-sand-100"     },
 };
 
+function getCatConfig(cat?: string | null) {
+  return CATEGORY_CONFIG[cat ?? "general"] ?? CATEGORY_CONFIG.general;
+}
+
+// ── Timeline item card ────────────────────────────────────────────────────────
+function TimelineItem({
+  item, onEdit, onDelete,
+}: {
+  item: any; onEdit: (item: any) => void; onDelete: (id: number) => void;
+}) {
+  const cfg = getCatConfig(item.category);
+  const Icon = cfg.icon;
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 10 }}
+      transition={{ duration: 0.3, ease }}
+      className="flex gap-3"
+    >
+      {/* Icon node */}
+      <div className="flex flex-col items-center shrink-0">
+        <div className={`w-9 h-9 rounded-xl ${cfg.bg} flex items-center justify-center z-10`}>
+          <Icon className={`w-4.5 h-4.5 ${cfg.color}`} />
+        </div>
+        <div className="w-0.5 flex-1 bg-sand-200 mt-1" />
+      </div>
+
+      {/* Content card */}
+      <div className="flex-1 bg-white rounded-2xl shadow-card p-4 mb-4 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            {item.time && (
+              <p className="text-[11px] font-bold text-lagoon-600 uppercase tracking-wide mb-0.5">{item.time}</p>
+            )}
+            <h3 className="font-bold text-ink-950 text-[15px] leading-snug">{item.title}</h3>
+            {item.description && (
+              <p className="text-[13px] text-ink-600 mt-1.5 leading-relaxed">{item.description}</p>
+            )}
+          </div>
+          <div className="flex gap-0.5 shrink-0">
+            <button onClick={() => onEdit(item)} className="p-2 text-ink-300 hover:text-ink-600 tap rounded-lg">
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={() => onDelete(item.id)} className="p-2 text-ink-300 hover:text-hibiscus-500 tap rounded-lg">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
 export default function Weekend() {
   const { data: items = [], isLoading } = useListItineraryItems();
   const createItem = useCreateItineraryItem();
@@ -26,29 +105,45 @@ export default function Weekend() {
   const deleteItem = useDeleteItineraryItem();
   const queryClient = useQueryClient();
 
+  const [activeDay, setActiveDay] = useState(TRIP_DAYS[0].label);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
 
   // Form state
-  const [dayLabel, setDayLabel] = useState("Friday");
+  const [dayLabel, setDayLabel] = useState(TRIP_DAYS[0].label);
   const [time, setTime] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("explore");
 
-  const days = items.reduce((acc, item) => {
+  // Items grouped by day label
+  const byDay = items.reduce((acc, item) => {
     if (!acc[item.dayLabel]) acc[item.dayLabel] = [];
     acc[item.dayLabel].push(item);
     return acc;
   }, {} as Record<string, typeof items>);
 
-  const handleOpenAdd = () => {
+  // Scroll active day tab into view
+  useEffect(() => {
+    const strip = stripRef.current;
+    if (!strip) return;
+    const btn = strip.querySelector(`[data-day="${activeDay}"]`) as HTMLElement | null;
+    if (btn) btn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [activeDay]);
+
+  const resetForm = () => {
     setEditingId(null);
-    setDayLabel("Friday");
+    setDayLabel(activeDay);
     setTime("");
     setTitle("");
     setDescription("");
     setCategory("explore");
+  };
+
+  const handleOpenAdd = (day?: string) => {
+    resetForm();
+    if (day) setDayLabel(day);
     setIsDrawerOpen(true);
   };
 
@@ -68,7 +163,7 @@ export default function Weekend() {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListItineraryItemsQueryKey() });
           toast.success("Removed");
-        }
+        },
       });
     }
   };
@@ -76,7 +171,6 @@ export default function Weekend() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title) return toast.error("Title required");
-
     const payload = { dayLabel, time, title, description, category };
 
     if (editingId) {
@@ -85,15 +179,15 @@ export default function Weekend() {
           queryClient.invalidateQueries({ queryKey: getListItineraryItemsQueryKey() });
           setIsDrawerOpen(false);
           toast.success("Updated");
-        }
+        },
       });
     } else {
       createItem.mutate({ data: payload }, {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListItineraryItemsQueryKey() });
           setIsDrawerOpen(false);
-          toast.success("Added");
-        }
+          toast.success("Added to the plan");
+        },
       });
     }
   };
@@ -102,105 +196,214 @@ export default function Weekend() {
     return (
       <div className="p-6 space-y-4">
         <div className="h-20 bg-sand-200/50 animate-pulse rounded-2xl" />
+        <div className="h-40 bg-sand-200/50 animate-pulse rounded-2xl" />
       </div>
     );
   }
 
+  const activeDayItems = byDay[activeDay] ?? [];
+  const activeDayMeta = TRIP_DAYS.find(d => d.label === activeDay) ?? TRIP_DAYS[0];
+
   return (
-    <div className="pb-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center pr-5">
-        <PageHeader eyebrow="The Plan" title="Trip Agenda" subtitle="Loose plans, tight vibes." />
-        <button onClick={handleOpenAdd} className="w-12 h-12 bg-lagoon-600 text-white rounded-full flex items-center justify-center shadow-card tap">
+    <div className="pb-24 animate-in fade-in duration-500">
+
+      {/* ── Page header ── */}
+      <div className="px-5 pt-6 pb-4 flex items-start justify-between">
+        <div>
+          <p className="text-[10px] font-bold text-ink-400 tracking-[0.18em] uppercase mb-0.5">The Plan</p>
+          <h1 className="font-display text-3xl font-medium text-ink-950">Trip Agenda</h1>
+          <p className="text-[13px] text-ink-400 mt-0.5">Loose plans, tight vibes.</p>
+        </div>
+        <button
+          onClick={() => handleOpenAdd(activeDay)}
+          className="w-12 h-12 bg-lagoon-600 text-white rounded-full flex items-center justify-center shadow-card tap shrink-0 mt-1"
+        >
           <Plus className="w-6 h-6" />
         </button>
       </div>
 
-      <div className="px-5 space-y-10 mt-4">
-        {Object.entries(days).map(([day, dayItems]) => (
-          <div key={day} className="relative">
-            <h2 className="font-display text-2xl text-ink-950 mb-6 sticky top-0 bg-sand-50/90 backdrop-blur py-2 z-20">
-              {day}
-            </h2>
-            
-            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-sand-200">
-              {dayItems.map(item => (
-                <div key={item.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-sand-50 bg-white shadow-sm shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
-                    {getCategoryIcon(item.category)}
-                  </div>
-                  
-                  <div className="w-[calc(100%-3rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 rounded-2xl shadow-card ml-4 md:ml-0 relative">
-                    <div className="absolute top-3 right-2 flex gap-1">
-                      <button onClick={() => handleOpenEdit(item)} className="p-1.5 text-ink-400 hover:text-ink-900 tap"><MoreVertical className="w-4 h-4" /></button>
-                      <button onClick={() => handleDelete(item.id)} className="p-1.5 text-ink-400 hover:text-hibiscus-500 tap"><Trash2 className="w-4 h-4" /></button>
-                    </div>
+      {/* ── Day strip ── */}
+      <div
+        ref={stripRef}
+        className="flex gap-2.5 overflow-x-auto no-scrollbar px-5 pb-4"
+      >
+        {TRIP_DAYS.map(day => {
+          const isActive = day.label === activeDay;
+          const hasItems = (byDay[day.label]?.length ?? 0) > 0;
+          const DayIcon = day.icon;
 
-                    {item.time && (
-                      <div className="text-xs font-bold text-lagoon-600 mb-1">{item.time}</div>
-                    )}
-                    <h3 className="font-bold text-ink-950 text-lg pr-12">{item.title}</h3>
-                    {item.description && (
-                      <p className="text-sm text-ink-700/80 mt-2 leading-relaxed">{item.description}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-        {Object.keys(days).length === 0 && (
-          <div className="text-center text-ink-900/40 py-12 border-2 border-dashed border-sand-200 rounded-3xl mx-5">
-            No itinerary items yet. Go with the flow!
-          </div>
-        )}
+          return (
+            <button
+              key={day.label}
+              data-day={day.label}
+              onClick={() => setActiveDay(day.label)}
+              className={`flex-shrink-0 flex flex-col items-center gap-1 px-3 pt-3 pb-2.5 rounded-2xl transition-all duration-200 tap min-w-[64px] border ${
+                isActive
+                  ? "bg-ink-950 border-ink-950 shadow-card"
+                  : "bg-white border-sand-200 shadow-sm"
+              }`}
+            >
+              <DayIcon className={`w-4 h-4 ${isActive ? "text-white/70" : day.color}`} />
+              <span className={`text-[11px] font-bold leading-none ${isActive ? "text-white" : "text-ink-900"}`}>
+                {day.dow}
+              </span>
+              <span className={`text-[10px] leading-none ${isActive ? "text-white/50" : "text-ink-400"}`}>
+                {day.date}
+              </span>
+              {/* Item count dot */}
+              {hasItems && (
+                <div className={`w-1.5 h-1.5 rounded-full mt-0.5 ${isActive ? "bg-lagoon-400" : "bg-lagoon-600"}`} />
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+      {/* ── Day content ── */}
+      <div className="px-5">
+        {/* Day title */}
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="font-display text-2xl text-ink-950">
+              {activeDayMeta.shortLabel === "Final" ? "Final Day" : activeDayMeta.label}
+            </h2>
+            <p className="text-[12px] text-ink-400 mt-0.5">
+              {activeDayMeta.dow}, {activeDayMeta.date} · 2026
+            </p>
+          </div>
+          <button
+            onClick={() => handleOpenAdd(activeDay)}
+            className="flex items-center gap-1.5 text-[12px] font-bold text-lagoon-600 bg-lagoon-600/10 px-3.5 py-2 rounded-full tap"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add
+          </button>
+        </div>
+
+        {/* Timeline */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeDay}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25, ease }}
+          >
+            {activeDayItems.length > 0 ? (
+              <div>
+                <AnimatePresence>
+                  {activeDayItems.map(item => (
+                    <TimelineItem
+                      key={item.id}
+                      item={item}
+                      onEdit={handleOpenEdit}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+            ) : (
+              <button
+                onClick={() => handleOpenAdd(activeDay)}
+                className="w-full border-2 border-dashed border-sand-200 rounded-3xl py-12 flex flex-col items-center gap-3 tap hover:border-lagoon-300 hover:bg-lagoon-50/30 transition-colors"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-sand-100 flex items-center justify-center">
+                  <Plus className="w-6 h-6 text-ink-300" />
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-ink-900/50 text-[14px]">Nothing planned yet</p>
+                  <p className="text-[12px] text-ink-400 mt-0.5">Tap to add something for {activeDayMeta.dow}</p>
+                </div>
+              </button>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* ── Add / Edit drawer ── */}
+      <Drawer open={isDrawerOpen} onOpenChange={v => { if (!v) resetForm(); setIsDrawerOpen(v); }}>
         <DrawerContent>
           <div className="px-2">
-            <h2 className="font-display text-2xl text-ink-950 mb-6">{editingId ? "Edit Plan" : "Add Plan"}</h2>
+            <h2 className="font-display text-2xl text-ink-950 mb-6">
+              {editingId ? "Edit Plan" : "Add to Plan"}
+            </h2>
             <form onSubmit={handleSubmit} className="space-y-4 pb-8">
+              {/* Day selector */}
+              <div>
+                <label className="text-sm font-bold text-ink-900 block mb-1">Day</label>
+                <select
+                  value={dayLabel}
+                  onChange={e => setDayLabel(e.target.value)}
+                  className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600"
+                >
+                  {TRIP_DAYS.map(d => (
+                    <option key={d.label} value={d.label}>
+                      {d.dow} {d.date} — {d.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-sm font-bold text-ink-900 block mb-1">Day</label>
-                  <select value={dayLabel} onChange={e => setDayLabel(e.target.value)} className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600">
-                    <option value="Thursday">Thursday</option>
-                    <option value="Friday">Friday</option>
-                    <option value="Saturday">Saturday</option>
-                    <option value="Sunday">Sunday</option>
-                    <option value="Monday">Monday</option>
+                  <label className="text-sm font-bold text-ink-900 block mb-1">Category</label>
+                  <select
+                    value={category}
+                    onChange={e => setCategory(e.target.value)}
+                    className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600"
+                  >
+                    <option value="explore">🗺 Explore</option>
+                    <option value="food">🍽 Food & Drink</option>
+                    <option value="boat">⛵ Boat</option>
+                    <option value="beach">⚓ Beach</option>
+                    <option value="activity">🚴 Activity</option>
+                    <option value="morning">🌅 Morning</option>
+                    <option value="afternoon">☀️ Afternoon</option>
+                    <option value="evening">🌇 Evening</option>
+                    <option value="night">🌙 Night</option>
+                    <option value="arrival">✈️ Arrival</option>
+                    <option value="general">📌 General</option>
                   </select>
                 </div>
                 <div>
                   <label className="text-sm font-bold text-ink-900 block mb-1">Time (optional)</label>
-                  <input type="text" placeholder="e.g. 10:00 AM" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600" />
+                  <input
+                    type="text"
+                    placeholder="e.g. 10:00 AM"
+                    value={time}
+                    onChange={e => setTime(e.target.value)}
+                    className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600"
+                  />
                 </div>
               </div>
 
               <div>
                 <label className="text-sm font-bold text-ink-900 block mb-1">Title</label>
-                <input type="text" value={title} onChange={e => setTitle(e.target.value)} required className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600" />
+                <input
+                  type="text"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  required
+                  placeholder="What are you doing?"
+                  className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600"
+                />
               </div>
 
               <div>
-                <label className="text-sm font-bold text-ink-900 block mb-1">Description (optional)</label>
-                <textarea rows={3} value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600" />
+                <label className="text-sm font-bold text-ink-900 block mb-1">Details (optional)</label>
+                <textarea
+                  rows={3}
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder="Any notes, reservations, links…"
+                  className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600 resize-none"
+                />
               </div>
 
-              <div>
-                <label className="text-sm font-bold text-ink-900 block mb-1">Category</label>
-                <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600">
-                  <option value="explore">Explore</option>
-                  <option value="food">Food & Drink</option>
-                  <option value="boat">Boat/Beach</option>
-                  <option value="morning">Morning</option>
-                  <option value="afternoon">Afternoon</option>
-                  <option value="evening">Evening</option>
-                  <option value="night">Night</option>
-                </select>
-              </div>
-
-              <button type="submit" disabled={createItem.isPending || updateItem.isPending} className="w-full bg-lagoon-600 text-white font-bold py-4 rounded-xl shadow-md mt-4 tap">
+              <button
+                type="submit"
+                disabled={createItem.isPending || updateItem.isPending}
+                className="w-full bg-lagoon-600 text-white font-bold py-4 rounded-xl shadow-md tap"
+              >
                 {editingId ? "Save Changes" : "Add to Plan"}
               </button>
             </form>

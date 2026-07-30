@@ -1,9 +1,13 @@
 import { useListGuideEntries, useUpdateGuideEntry, getListGuideEntriesQueryKey } from "@workspace/api-client-react";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { MapPin, Navigation, Heart, Globe, UtensilsCrossed, Wine, Waves, Sailboat, Zap, ShoppingBasket, Coffee } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { motion } from "framer-motion";
+
+const ease = [0.22, 1, 0.36, 1] as const;
+
+const ST_JOHN_HERO = "https://images.unsplash.com/photo-1590523277543-a94d2e4eb00b?w=1200&q=85&fit=crop&crop=center";
 
 const categories = [
   { id: "dining",   label: "Dining",     icon: UtensilsCrossed },
@@ -38,9 +42,48 @@ export default function Explore() {
 
   return (
     <div className="pb-8 animate-in fade-in duration-500">
-      <PageHeader eyebrow="The Island" title="Explore St. John" subtitle="Curated spots for the trip." />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      {/* ── St. John hero banner ── */}
+      <div className="relative h-44 overflow-hidden">
+        <img
+          src={ST_JOHN_HERO}
+          alt="St. John, USVI"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        {/* Deep gradient so text pops cleanly */}
+        <div className="absolute inset-0 bg-gradient-to-t from-ink-950/80 via-ink-950/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-ink-950/20 via-transparent to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 px-5 pb-5">
+          <motion.p
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease }}
+            className="text-[10px] font-bold text-brass-400 tracking-[0.2em] uppercase mb-1"
+          >
+            The Island
+          </motion.p>
+          <motion.h1
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.5, ease }}
+            className="font-display text-3xl font-medium text-white leading-tight"
+          >
+            Explore St. John
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="text-white/60 text-[12px] mt-0.5"
+          >
+            Curated spots for the trip.
+          </motion.p>
+        </div>
+        {/* Smooth blend into page background */}
+        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-sand-50 to-transparent" />
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-1">
         {/* Category tabs with icons */}
         <div className="px-5 mb-6">
           <TabsList className="w-full h-auto flex flex-wrap gap-2 bg-transparent p-0 justify-start">
@@ -99,7 +142,6 @@ export default function Explore() {
                       )}
 
                       <div className="p-5">
-                        {/* Category badge */}
                         <div className="flex items-center gap-2 mb-2">
                           <div className="w-6 h-6 rounded-lg bg-sand-100 flex items-center justify-center">
                             <CatIcon className="w-3.5 h-3.5 text-ink-500" />
