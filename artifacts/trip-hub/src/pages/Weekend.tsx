@@ -109,7 +109,7 @@ export default function Weekend() {
   return (
     <div className="pb-8 animate-in fade-in duration-500">
       <div className="flex justify-between items-center pr-5">
-        <PageHeader eyebrow="The Plan" title="Weekend Agenda" subtitle="Loose plans, tight vibes." />
+        <PageHeader eyebrow="The Plan" title="Trip Agenda" subtitle="Loose plans, tight vibes." />
         <button onClick={handleOpenAdd} className="w-12 h-12 bg-lagoon-600 text-white rounded-full flex items-center justify-center shadow-card tap">
           <Plus className="w-6 h-6" />
         </button>

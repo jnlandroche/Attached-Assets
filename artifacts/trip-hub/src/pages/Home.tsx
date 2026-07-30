@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { Wallet, Plane, Compass, ChevronRight, PartyPopper, PlaneLanding, Thermometer } from "lucide-react";
+import { Wallet, Plane, Compass, ChevronRight, PartyPopper, PlaneLanding } from "lucide-react";
 import {
   useGetSettings,
   useListBalances,
@@ -14,6 +14,108 @@ import { Progress } from "@/components/ui/progress";
 import { HorizonWave } from "@/components/ui/HorizonWave";
 
 const ease = [0.22, 1, 0.36, 1] as const;
+
+// ── 7-day trip weather forecast ───────────────────────────────────────────────
+const TRIP_DAYS = [
+  { dow: "Sat", date: "Oct 17", emoji: "⛅", label: "Partly Cloudy", high: 87, low: 78, rain: 20 },
+  { dow: "Sun", date: "Oct 18", emoji: "☀️",  label: "Sunny",         high: 88, low: 77, rain:  5 },
+  { dow: "Mon", date: "Oct 19", emoji: "☀️",  label: "Mostly Sunny",  high: 88, low: 78, rain: 10 },
+  { dow: "Tue", date: "Oct 20", emoji: "🌦️", label: "Brief Shower",  high: 85, low: 77, rain: 45 },
+  { dow: "Wed", date: "Oct 21", emoji: "⛅", label: "Partly Cloudy", high: 87, low: 78, rain: 20 },
+  { dow: "Thu", date: "Oct 22", emoji: "☀️",  label: "Sunny",         high: 88, low: 77, rain:  5 },
+  { dow: "Fri", date: "Oct 23", emoji: "☀️",  label: "Mostly Sunny",  high: 87, low: 77, rain: 10 },
+  { dow: "Sat", date: "Oct 24", emoji: "⛅", label: "Partly Cloudy", high: 86, low: 78, rain: 25 },
+];
+
+function WeatherForecast() {
+  const allHighs = TRIP_DAYS.map(d => d.high);
+  const rangeMin = Math.min(...TRIP_DAYS.map(d => d.low));
+  const rangeMax = Math.max(...allHighs);
+
+  return (
+    <div className="bg-white rounded-3xl shadow-card overflow-hidden">
+      {/* Header gradient */}
+      <div className="px-5 pt-5 pb-4"
+        style={{ background: "linear-gradient(135deg, #e0f4f9 0%, #f0faf8 60%, #fff8ee 100%)" }}>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-[10px] font-bold text-lagoon-700/60 tracking-[0.18em] uppercase mb-0.5">Weather</p>
+            <h2 className="font-display text-xl font-medium text-ink-950">October Outlook</h2>
+            <p className="text-[11px] text-ink-900/40 mt-0.5">St. John, USVI · historical averages</p>
+          </div>
+          <div className="text-right mt-1">
+            <p className="text-[13px] font-bold text-lagoon-600">85–88°F</p>
+            <p className="text-[11px] text-ink-900/40">avg range</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Day tiles — horizontal scroll */}
+      <div className="flex gap-0 overflow-x-auto no-scrollbar border-t border-ink-900/[0.05]">
+        {TRIP_DAYS.map((day, i) => {
+          // Temp bar: position within range
+          const barBot = ((day.low  - rangeMin) / (rangeMax - rangeMin)) * 100;
+          const barTop = ((day.high - rangeMin) / (rangeMax - rangeMin)) * 100;
+          const isFirst = i === 0;
+          const isLast  = i === TRIP_DAYS.length - 1;
+          return (
+            <div
+              key={day.date}
+              className={`flex-shrink-0 flex flex-col items-center px-3 py-4 gap-1.5 min-w-[4.2rem]
+                ${isFirst ? "" : "border-l border-ink-900/[0.05]"}
+                ${isFirst ? "bg-lagoon-600/[0.04]" : ""}
+                ${isLast  ? "bg-ink-900/[0.02]" : ""}`}
+            >
+              {/* Day label */}
+              <p className={`text-[10px] font-bold tracking-wide uppercase ${isFirst ? "text-lagoon-600" : "text-ink-900/35"}`}>
+                {day.dow}
+              </p>
+              <p className="text-[9px] text-ink-900/30">{day.date}</p>
+
+              {/* Weather emoji */}
+              <span className="text-2xl leading-none mt-0.5">{day.emoji}</span>
+
+              {/* High temp */}
+              <p className="text-[15px] font-bold text-ink-950 leading-none mt-1">{day.high}°</p>
+
+              {/* Temp range bar */}
+              <div className="w-1 h-10 rounded-full bg-ink-900/[0.07] relative overflow-hidden my-0.5">
+                <div
+                  className="absolute left-0 right-0 rounded-full"
+                  style={{
+                    bottom: `${barBot}%`,
+                    height: `${barTop - barBot}%`,
+                    background: day.rain >= 40
+                      ? "linear-gradient(to top, #4fc3f7, #81d4fa)"
+                      : "linear-gradient(to top, #f59e0b, #fbbf24)",
+                  }}
+                />
+              </div>
+
+              {/* Low temp */}
+              <p className="text-[11px] text-ink-900/40 leading-none">{day.low}°</p>
+
+              {/* Rain chance */}
+              <p className={`text-[10px] font-semibold mt-0.5 ${day.rain >= 40 ? "text-sky-500" : "text-ink-900/25"}`}>
+                {day.rain}%
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer note */}
+      <div className="px-5 py-3 border-t border-ink-900/[0.05] flex items-center justify-between">
+        <p className="text-[10px] text-ink-900/30 leading-snug">
+          💧 Rain % · 🌡️ High / Low
+        </p>
+        <p className="text-[10px] text-ink-900/30">
+          Actual forecast ~Oct 7
+        </p>
+      </div>
+    </div>
+  );
+}
 
 // ── Mini October calendar ────────────────────────────────────────────────────
 function TripCalendar({ checkIn, checkOut }: { checkIn: string; checkOut: string }) {
@@ -295,20 +397,18 @@ export default function Home() {
             </motion.p>
           )}
 
-          {/* Weather pill — visible, not buried */}
-          {weather && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.55, duration: 0.5, ease }}
-              className="flex items-center gap-2 bg-white/[0.10] backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 self-start"
-            >
-              <Thermometer className="w-3.5 h-3.5 text-papaya-400 shrink-0" />
-              <span className="text-white/80 text-[12px] font-medium leading-snug">
-                {weather}
-              </span>
-            </motion.div>
-          )}
+          {/* Weather teaser pill */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.55, duration: 0.5, ease }}
+            className="flex items-center gap-2 bg-white/[0.10] backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 self-start"
+          >
+            <span className="text-base leading-none">☀️</span>
+            <span className="text-white/80 text-[12px] font-medium leading-snug">
+              85–88°F · Mostly sunny, brief showers possible
+            </span>
+          </motion.div>
         </div>
 
         {/* Horizon seam */}
@@ -346,6 +446,16 @@ export default function Home() {
             <TripCalendar checkIn={checkIn} checkOut={checkOut} />
           </motion.div>
         )}
+
+        {/* 7-day weather outlook */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-40px" }}
+          transition={{ duration: 0.45, ease }}
+        >
+          <WeatherForecast />
+        </motion.div>
 
         {/* Quick links */}
         <div className="grid grid-cols-3 gap-2.5">
