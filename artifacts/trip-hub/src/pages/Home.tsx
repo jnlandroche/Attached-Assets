@@ -405,7 +405,7 @@ export default function Home() {
             className="font-display tracking-tight leading-[0.87] mb-5"
           >
             <span className="block text-[4.5rem] font-medium text-white">Jordan's</span>
-            <span className="block text-[4.5rem] font-medium text-brass-400">40th.</span>
+            <span className="block text-[4.5rem] font-medium text-white">40th.</span>
           </motion.h1>
 
           {/* Date badge */}
