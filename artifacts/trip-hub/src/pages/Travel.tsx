@@ -2,7 +2,7 @@ import { useListGuests, useUpdateGuest, getListGuestsQueryKey, useListHouseholds
 import { PageHeader } from "@/components/ui/PageHeader";
 import {
   PlaneLanding, PlaneTakeoff, Clock, AlertTriangle, Plus,
-  Loader2, CheckCircle2,
+  Loader2, CheckCircle2, Pencil,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
@@ -55,6 +55,19 @@ function toUsviParts(iso: string): { date: string; time: string } {
   };
 }
 
+// ── Types ────────────────────────────────────────────────────────────────────
+type EditingGuest = {
+  id: number;
+  name: string;
+  airline: string;
+  arrivalDate: string;
+  arrivalTime: string;
+  arrivalFlightNumber: string;
+  departureDate: string;
+  departureTime: string;
+  departureFlightNumber: string;
+};
+
 // ── Main page ────────────────────────────────────────────────────────────────
 export default function Travel() {
   const { data: guests = [], isLoading } = useListGuests();
@@ -72,11 +85,14 @@ export default function Travel() {
   const [flightNum, setFlightNum] = useState("");
   const [airline, setAirline] = useState("");
 
-  // Flight lookup state
+  // Flight lookup state (for Add Guest drawer)
   type LookupState = "idle" | "loading" | "found" | "partial" | "not_found";
   const [lookupState, setLookupState] = useState<LookupState>("idle");
   const [lookupResult, setLookupResult] = useState<any>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Edit flight drawer state
+  const [editGuest, setEditGuest] = useState<EditingGuest | null>(null);
 
   // ── Debounced flight lookup ─────────────────────────────────────────────
   useEffect(() => {
@@ -160,6 +176,66 @@ export default function Travel() {
     });
   };
 
+  // ── Open edit drawer ────────────────────────────────────────────────────
+  const openEdit = (guest: any) => {
+    const arrParsed = guest.arrivalDatetime ? toUsviParts(guest.arrivalDatetime) : { date: "", time: "" };
+    const depParsed = guest.departureDatetime ? toUsviParts(guest.departureDatetime) : { date: "", time: "" };
+    setEditGuest({
+      id: guest.id,
+      name: guest.name,
+      airline: guest.airline || "",
+      arrivalDate: arrParsed.date,
+      arrivalTime: arrParsed.time,
+      arrivalFlightNumber: guest.arrivalFlightNumber || "",
+      departureDate: depParsed.date,
+      departureTime: depParsed.time,
+      departureFlightNumber: guest.departureFlightNumber || "",
+    });
+  };
+
+  // ── Save edited flight details ──────────────────────────────────────────
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editGuest) return;
+
+    let arrivalDatetime: string | null = null;
+    if (editGuest.arrivalDate && editGuest.arrivalTime) {
+      arrivalDatetime = new Date(`${editGuest.arrivalDate}T${editGuest.arrivalTime}`).toISOString();
+    } else if (editGuest.arrivalDate) {
+      arrivalDatetime = new Date(`${editGuest.arrivalDate}T00:00`).toISOString();
+    }
+
+    let departureDatetime: string | null = null;
+    if (editGuest.departureDate && editGuest.departureTime) {
+      departureDatetime = new Date(`${editGuest.departureDate}T${editGuest.departureTime}`).toISOString();
+    } else if (editGuest.departureDate) {
+      departureDatetime = new Date(`${editGuest.departureDate}T00:00`).toISOString();
+    }
+
+    updateGuest.mutate(
+      {
+        id: editGuest.id,
+        data: {
+          airline: editGuest.airline || null,
+          arrivalFlightNumber: editGuest.arrivalFlightNumber || null,
+          arrivalDatetime,
+          departureFlightNumber: editGuest.departureFlightNumber || null,
+          departureDatetime,
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListGuestsQueryKey() });
+          setEditGuest(null);
+          toast.success("Flight details saved");
+        },
+        onError: () => {
+          toast.error("Failed to save — try again");
+        },
+      }
+    );
+  };
+
   // ── Add guest ───────────────────────────────────────────────────────────
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,7 +296,17 @@ export default function Travel() {
               <div key={`arr-${guest.id}`} className="bg-white rounded-2xl p-4 shadow-card">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="font-bold text-ink-950 text-lg">{guest.name}</h3>
-                  <FlightStatusBadge status={guest.flightStatus} onClick={() => handleStatusCycle(guest)} />
+                  <div className="flex items-center gap-2">
+                    <FlightStatusBadge status={guest.flightStatus} onClick={() => handleStatusCycle(guest)} />
+                    <button
+                      onClick={() => openEdit(guest)}
+                      className="tap p-1.5 rounded-full bg-sand-100 text-ink-500 hover:bg-sand-200 transition-colors"
+                      aria-label="Edit flight details"
+                      type="button"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-sand-100">
                   <div>
@@ -260,6 +346,14 @@ export default function Travel() {
               <div key={`dep-${guest.id}`} className="bg-white rounded-2xl p-4 shadow-card opacity-80">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="font-bold text-ink-950 text-lg">{guest.name}</h3>
+                  <button
+                    onClick={() => openEdit(guest)}
+                    className="tap p-1.5 rounded-full bg-sand-100 text-ink-500 hover:bg-sand-200 transition-colors"
+                    aria-label="Edit flight details"
+                    type="button"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
                 </div>
                 <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-sand-100">
                   <div>
@@ -283,6 +377,114 @@ export default function Travel() {
           </div>
         </div>
       </div>
+
+      {/* Edit Flight Drawer */}
+      <Drawer open={!!editGuest} onOpenChange={(open) => { if (!open) setEditGuest(null); }}>
+        <DrawerContent>
+          <div className="px-2 pb-2">
+            <h2 className="font-display text-2xl text-ink-950 mb-1">Edit Flight Info</h2>
+            {editGuest && (
+              <p className="text-sm text-ink-500 mb-5">{editGuest.name}</p>
+            )}
+            {editGuest && (
+              <form onSubmit={handleEditSubmit} className="space-y-5">
+                <div>
+                  <label className="text-xs font-bold text-ink-500 uppercase tracking-wider block mb-1.5">Airline</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Delta"
+                    value={editGuest.airline}
+                    onChange={e => setEditGuest({ ...editGuest, airline: e.target.value })}
+                    className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600 text-ink-950"
+                  />
+                </div>
+
+                <div className="bg-sand-50 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <PlaneLanding className="w-4 h-4 text-lagoon-600" />
+                    <span className="text-sm font-bold text-ink-900">Arrival</span>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-ink-500 uppercase tracking-wider block mb-1.5">Flight Number</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. DL 1234"
+                      value={editGuest.arrivalFlightNumber}
+                      onChange={e => setEditGuest({ ...editGuest, arrivalFlightNumber: e.target.value })}
+                      className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600 text-ink-950"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-ink-500 uppercase tracking-wider block mb-1.5">Date</label>
+                      <input
+                        type="date"
+                        value={editGuest.arrivalDate}
+                        onChange={e => setEditGuest({ ...editGuest, arrivalDate: e.target.value })}
+                        className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600 text-ink-950"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-ink-500 uppercase tracking-wider block mb-1.5">Time</label>
+                      <input
+                        type="time"
+                        value={editGuest.arrivalTime}
+                        onChange={e => setEditGuest({ ...editGuest, arrivalTime: e.target.value })}
+                        className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600 text-ink-950"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-sand-50 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <PlaneTakeoff className="w-4 h-4 text-papaya-600" />
+                    <span className="text-sm font-bold text-ink-900">Departure</span>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-ink-500 uppercase tracking-wider block mb-1.5">Flight Number</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. DL 5678"
+                      value={editGuest.departureFlightNumber}
+                      onChange={e => setEditGuest({ ...editGuest, departureFlightNumber: e.target.value })}
+                      className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600 text-ink-950"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-ink-500 uppercase tracking-wider block mb-1.5">Date</label>
+                      <input
+                        type="date"
+                        value={editGuest.departureDate}
+                        onChange={e => setEditGuest({ ...editGuest, departureDate: e.target.value })}
+                        className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600 text-ink-950"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-ink-500 uppercase tracking-wider block mb-1.5">Time</label>
+                      <input
+                        type="time"
+                        value={editGuest.departureTime}
+                        onChange={e => setEditGuest({ ...editGuest, departureTime: e.target.value })}
+                        className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600 text-ink-950"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={updateGuest.isPending}
+                  className="w-full bg-lagoon-600 text-white font-bold py-4 rounded-xl shadow-md tap"
+                >
+                  {updateGuest.isPending ? "Saving…" : "Save Flight Details"}
+                </button>
+              </form>
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {/* Add guest drawer */}
       <Drawer open={isAddOpen} onOpenChange={(open) => { if (!open) resetForm(); setIsAddOpen(open); }}>
