@@ -28,6 +28,11 @@ function WeatherForecast({ data }: { data: WeatherData | null }) {
   const rangeMax = Math.max(...days.map(d => d.high));
   const isLive = source === "live";
 
+  // Highlight today's tile; fall back to day 0 if today isn't in the forecast
+  const todayLabel = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const todayIdx = days.findIndex(d => d.date === todayLabel);
+  const highlightIdx = todayIdx >= 0 ? todayIdx : 0;
+
   const headerLow  = Math.min(...days.map(d => d.low));
   const headerHigh = Math.max(...days.map(d => d.high));
   const headerRange = isLive ? `${headerLow}–${headerHigh}°F` : "85–88°F";
@@ -57,7 +62,7 @@ function WeatherForecast({ data }: { data: WeatherData | null }) {
           // Temp bar: position within range
           const barBot = ((day.low  - rangeMin) / (rangeMax - rangeMin)) * 100;
           const barTop = ((day.high - rangeMin) / (rangeMax - rangeMin)) * 100;
-          const isFirst = i === 0;
+          const isFirst = i === highlightIdx;
           const isLast  = i === days.length - 1;
           return (
             <div
