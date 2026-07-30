@@ -23,6 +23,26 @@ const HISTORICAL_DAYS = [
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+interface ForecastDay {
+  dow: string;
+  date: string;
+  emoji: string;
+  label: string;
+  high: number;
+  low: number;
+  rain: number;
+}
+
+interface CacheEntry {
+  days: ForecastDay[];
+  cachedUntil: string;
+  expiresAt: number;
+}
+
+let forecastCache: CacheEntry | null = null;
+
 function wmoToCondition(code: number): { emoji: string; label: string } {
   if (code === 0)                         return { emoji: "☀️",  label: "Sunny" };
   if (code === 1)                         return { emoji: "☀️",  label: "Mostly Sunny" };
@@ -44,6 +64,12 @@ router.get("/weather", async (_req, res): Promise<void> => {
   // Only fetch live forecast when the trip is within 10 days
   if (daysUntilTrip > 10) {
     res.json({ source: "historical", days: HISTORICAL_DAYS });
+    return;
+  }
+
+  // Return cached response if still fresh
+  if (forecastCache && now.getTime() < forecastCache.expiresAt) {
+    res.json({ source: "live", days: forecastCache.days, cachedUntil: forecastCache.cachedUntil });
     return;
   }
 
@@ -71,7 +97,7 @@ router.get("/weather", async (_req, res): Promise<void> => {
 
     const { time, temperature_2m_max, temperature_2m_min, precipitation_probability_max, weathercode } = data.daily;
 
-    const days = time.map((isoDate, i) => {
+    const days: ForecastDay[] = time.map((isoDate, i) => {
       const d = new Date(isoDate + "T12:00:00-04:00");
       const { emoji, label } = wmoToCondition(weathercode[i]);
       return {
@@ -85,10 +111,20 @@ router.get("/weather", async (_req, res): Promise<void> => {
       };
     });
 
-    res.json({ source: "live", days });
+    const expiresAt = now.getTime() + CACHE_TTL_MS;
+    const cachedUntil = new Date(expiresAt).toISOString();
+
+    forecastCache = { days, cachedUntil, expiresAt };
+
+    res.json({ source: "live", days, cachedUntil });
   } catch {
     // Always fall back to historical rather than breaking the UI
-    res.json({ source: "historical", days: HISTORICAL_DAYS });
+    // Serve stale cache if available rather than historical averages
+    if (forecastCache) {
+      res.json({ source: "live", days: forecastCache.days, cachedUntil: forecastCache.cachedUntil });
+    } else {
+      res.json({ source: "historical", days: HISTORICAL_DAYS });
+    }
   }
 });
 
