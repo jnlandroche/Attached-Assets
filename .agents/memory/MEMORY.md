@@ -1,1 +1,2 @@
 - [Orval + Zod v3 integer conflict](orval-zod-integer.md) — Orval 8.23.0 generates `zod.int()` for `type: integer`; that's Zod v4 only; workspace uses Zod v3.
+- [API server bundle path resolution](api-server-bundle-path.md) — esbuild bundles all routes into dist/index.mjs; use `../public/images` not `../../public/images` from __dirname.

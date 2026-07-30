@@ -16,21 +16,18 @@ import { HorizonWave } from "@/components/ui/HorizonWave";
 const ease = [0.22, 1, 0.36, 1] as const;
 
 // ── 7-day trip weather forecast ───────────────────────────────────────────────
-const TRIP_DAYS = [
-  { dow: "Sat", date: "Oct 17", emoji: "⛅", label: "Partly Cloudy", high: 87, low: 78, rain: 20 },
-  { dow: "Sun", date: "Oct 18", emoji: "☀️",  label: "Sunny",         high: 88, low: 77, rain:  5 },
-  { dow: "Mon", date: "Oct 19", emoji: "☀️",  label: "Mostly Sunny",  high: 88, low: 78, rain: 10 },
-  { dow: "Tue", date: "Oct 20", emoji: "🌦️", label: "Brief Shower",  high: 85, low: 77, rain: 45 },
-  { dow: "Wed", date: "Oct 21", emoji: "⛅", label: "Partly Cloudy", high: 87, low: 78, rain: 20 },
-  { dow: "Thu", date: "Oct 22", emoji: "☀️",  label: "Sunny",         high: 88, low: 77, rain:  5 },
-  { dow: "Fri", date: "Oct 23", emoji: "☀️",  label: "Mostly Sunny",  high: 87, low: 77, rain: 10 },
-  { dow: "Sat", date: "Oct 24", emoji: "⛅", label: "Partly Cloudy", high: 86, low: 78, rain: 25 },
-];
+type WeatherDay = { dow: string; date: string; emoji: string; label: string; high: number; low: number; rain: number };
+type WeatherData = { source: "live" | "historical"; days: WeatherDay[] };
 
-function WeatherForecast() {
-  const allHighs = TRIP_DAYS.map(d => d.high);
-  const rangeMin = Math.min(...TRIP_DAYS.map(d => d.low));
-  const rangeMax = Math.max(...allHighs);
+function WeatherForecast({ data }: { data: WeatherData | null }) {
+  const days = data?.days ?? [];
+  const source = data?.source ?? "historical";
+  if (days.length === 0) return null;
+
+  const rangeMin = Math.min(...days.map(d => d.low));
+  const rangeMax = Math.max(...days.map(d => d.high));
+  const allHighs = days.map(d => d.high);
+  void allHighs; // keep same shape as before
 
   return (
     <div className="bg-white rounded-3xl shadow-card overflow-hidden">
@@ -52,12 +49,12 @@ function WeatherForecast() {
 
       {/* Day tiles — horizontal scroll */}
       <div className="flex gap-0 overflow-x-auto no-scrollbar border-t border-ink-900/[0.05]">
-        {TRIP_DAYS.map((day, i) => {
+        {days.map((day, i) => {
           // Temp bar: position within range
           const barBot = ((day.low  - rangeMin) / (rangeMax - rangeMin)) * 100;
           const barTop = ((day.high - rangeMin) / (rangeMax - rangeMin)) * 100;
           const isFirst = i === 0;
-          const isLast  = i === TRIP_DAYS.length - 1;
+          const isLast  = i === days.length - 1;
           return (
             <div
               key={day.date}
@@ -110,7 +107,7 @@ function WeatherForecast() {
           💧 Rain % · 🌡️ High / Low
         </p>
         <p className="text-[10px] text-ink-900/30">
-          Actual forecast ~Oct 7
+          {source === "live" ? "Live forecast" : "Actual forecast ~Oct 7"}
         </p>
       </div>
     </div>
@@ -256,8 +253,18 @@ export default function Home() {
   const settings: Record<string, string> = (settingsData as Record<string, string>) || {};
 
   const destinationPhotos: string[] = settings.destination_photos ? JSON.parse(settings.destination_photos) : [];
-  const groupPhotos: string[] = settings.group_photos ? JSON.parse(settings.group_photos) : [];
-  const birthdayPhotos: string[] = settings.birthday_photos ? JSON.parse(settings.birthday_photos) : [];
+
+  // Photos fetched from filesystem — no DB drift possible
+  const [birthdayPhotos, setBirthdayPhotos] = useState<string[]>([]);
+  const [groupPhotos, setGroupPhotos] = useState<string[]>([]);
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+
+  useEffect(() => {
+    fetch("/api/images/birthday-photos").then(r => r.json()).then(setBirthdayPhotos).catch(() => {});
+    fetch("/api/images/group-photos").then(r => r.json()).then(setGroupPhotos).catch(() => {});
+    fetch("/api/weather").then(r => r.json()).then(setWeatherData).catch(() => {});
+  }, []);
+
   // Hero uses destination (landscape) photos; fall back to group photos if none set
   const heroPhotos = destinationPhotos.length > 0 ? destinationPhotos : groupPhotos;
   // Combined people strip: group + birthday photos deduped
@@ -454,7 +461,7 @@ export default function Home() {
           viewport={{ once: true, margin: "-40px" }}
           transition={{ duration: 0.45, ease }}
         >
-          <WeatherForecast />
+          <WeatherForecast data={weatherData} />
         </motion.div>
 
         {/* Quick links */}
