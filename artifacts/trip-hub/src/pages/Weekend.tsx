@@ -16,14 +16,14 @@ const ease = [0.22, 1, 0.36, 1] as const;
 
 // ── All 8 trip days ───────────────────────────────────────────────────────────
 const TRIP_DAYS = [
-  { label: "Day 1 — Arrival",  shortLabel: "Day 1",  date: "Oct 17", dow: "Fri", icon: PlaneLanding,  color: "text-lagoon-600"  },
-  { label: "Day 2",            shortLabel: "Day 2",  date: "Oct 18", dow: "Sat", icon: Sun,           color: "text-brass-500"   },
-  { label: "Day 3",            shortLabel: "Day 3",  date: "Oct 19", dow: "Sun", icon: Sailboat,      color: "text-lagoon-600"  },
-  { label: "Day 4",            shortLabel: "Day 4",  date: "Oct 20", dow: "Mon", icon: Anchor,        color: "text-papaya-500"  },
-  { label: "Day 5",            shortLabel: "Day 5",  date: "Oct 21", dow: "Tue", icon: Bike,          color: "text-lagoon-600"  },
-  { label: "Day 6",            shortLabel: "Day 6",  date: "Oct 22", dow: "Wed", icon: PartyPopper,   color: "text-hibiscus-500"},
-  { label: "Day 7",            shortLabel: "Day 7",  date: "Oct 23", dow: "Thu", icon: Sun,           color: "text-brass-500"   },
-  { label: "Final Day",        shortLabel: "Final",  date: "Oct 24", dow: "Fri", icon: PlaneTakeoff,  color: "text-papaya-500"  },
+  { label: "Day 1 — Arrival",  shortLabel: "Day 1",  date: "Oct 17", dow: "Sat", icon: PlaneLanding,  color: "text-lagoon-600"  },
+  { label: "Day 2",            shortLabel: "Day 2",  date: "Oct 18", dow: "Sun", icon: Sun,           color: "text-brass-500"   },
+  { label: "Day 3",            shortLabel: "Day 3",  date: "Oct 19", dow: "Mon", icon: Sailboat,      color: "text-lagoon-600"  },
+  { label: "Day 4",            shortLabel: "Day 4",  date: "Oct 20", dow: "Tue", icon: Anchor,        color: "text-papaya-500"  },
+  { label: "Day 5",            shortLabel: "Day 5",  date: "Oct 21", dow: "Wed", icon: Bike,          color: "text-lagoon-600"  },
+  { label: "Day 6",            shortLabel: "Day 6",  date: "Oct 22", dow: "Thu", icon: PartyPopper,   color: "text-hibiscus-500"},
+  { label: "Day 7",            shortLabel: "Day 7",  date: "Oct 23", dow: "Fri", icon: Sun,           color: "text-brass-500"   },
+  { label: "Final Day",        shortLabel: "Final",  date: "Oct 24", dow: "Sat", icon: PlaneTakeoff,  color: "text-papaya-500"  },
 ];
 
 // ── Category config ───────────────────────────────────────────────────────────
