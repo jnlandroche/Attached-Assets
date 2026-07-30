@@ -29,11 +29,11 @@ const AMENITIES = [
 
 // All confirmed VRBO gallery images for this property
 const VILLA_GALLERY = [
-  "https://media.vrbo.com/lodging/60000000/59240000/59236700/59236603/567949bb.jpg?impolicy=resizecrop&rw=1200&ra=fit",
-  "https://media.vrbo.com/lodging/60000000/59240000/59236700/59236603/a0784551.jpg?impolicy=resizecrop&rw=1200&ra=fit",
-  "https://media.vrbo.com/lodging/60000000/59240000/59236700/59236603/82e7684c.jpg?impolicy=resizecrop&rw=1200&ra=fit",
-  "https://media.vrbo.com/lodging/60000000/59240000/59236700/59236603/b2170c33.jpg?impolicy=resizecrop&rw=1200&ra=fit",
-  "https://media.vrbo.com/lodging/60000000/59240000/59236700/59236603/6854944b.jpg?impolicy=resizecrop&rw=1200&ra=fit",
+  "/api/images/villa-1.jpg",
+  "/api/images/villa-2.jpg",
+  "/api/images/villa-3.jpg",
+  "/api/images/villa-4.jpg",
+  "/api/images/villa-5.jpg",
 ];
 
 // ── Gallery carousel ──────────────────────────────────────────────────────────
