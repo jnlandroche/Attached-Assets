@@ -34,9 +34,6 @@ const VILLA_GALLERY = [
   "https://media.vrbo.com/lodging/60000000/59240000/59236700/59236603/82e7684c.jpg?impolicy=resizecrop&rw=1200&ra=fit",
   "https://media.vrbo.com/lodging/60000000/59240000/59236700/59236603/b2170c33.jpg?impolicy=resizecrop&rw=1200&ra=fit",
   "https://media.vrbo.com/lodging/60000000/59240000/59236700/59236603/6854944b.jpg?impolicy=resizecrop&rw=1200&ra=fit",
-  // Additional pool + exterior shots from the same property series
-  "https://media.vrbo.com/lodging/60000000/59240000/59236700/59236603/5c0d1234.jpg?impolicy=resizecrop&rw=1200&ra=fit",
-  "https://media.vrbo.com/lodging/60000000/59240000/59236700/59236603/d3f48abc.jpg?impolicy=resizecrop&rw=1200&ra=fit",
 ];
 
 // ── Gallery carousel ──────────────────────────────────────────────────────────
