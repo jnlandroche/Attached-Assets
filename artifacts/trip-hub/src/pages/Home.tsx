@@ -409,17 +409,31 @@ export default function Home() {
           )}
 
           {/* Weather teaser pill */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.55, duration: 0.5, ease }}
-            className="flex items-center gap-2 bg-white/[0.10] backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 self-start"
-          >
-            <span className="text-base leading-none">☀️</span>
-            <span className="text-white/80 text-[12px] font-medium leading-snug">
-              85–88°F · Mostly sunny, brief showers possible
-            </span>
-          </motion.div>
+          {(() => {
+            // Show live forecast when within 10 days of trip and live data is available
+            const daysUntilTrip = checkIn
+              ? Math.ceil((new Date(checkIn + "T00:00:00").getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+              : Infinity;
+            const useLive = weatherData?.source === "live" && (weatherData.days?.length ?? 0) > 0 && daysUntilTrip <= 10;
+            const day0 = useLive ? weatherData!.days[0] : null;
+            const teaserEmoji = day0 ? day0.emoji : "☀️";
+            const teaserText = day0
+              ? `${day0.low}–${day0.high}°F · ${day0.label}`
+              : "85–88°F · Mostly sunny, brief showers possible";
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.55, duration: 0.5, ease }}
+                className="flex items-center gap-2 bg-white/[0.10] backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 self-start"
+              >
+                <span className="text-base leading-none">{teaserEmoji}</span>
+                <span className="text-white/80 text-[12px] font-medium leading-snug">
+                  {teaserText}
+                </span>
+              </motion.div>
+            );
+          })()}
         </div>
 
         {/* Horizon seam */}
