@@ -10,6 +10,8 @@ import { useState, useEffect, useRef } from "react";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { toast } from "sonner";
 
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 // ── Flight status badge ──────────────────────────────────────────────────────
 const FlightStatusBadge = ({ status, onClick }: { status?: string | null; onClick?: () => void }) => {
   const s = (status || "").toLowerCase();
@@ -111,7 +113,7 @@ export default function Travel() {
         const params = new URLSearchParams({ flightNumber: flightNum });
         if (arrivalDate) params.set("date", arrivalDate);
 
-        const res = await fetch(`/api/flight/lookup?${params}`);
+        const res = await fetch(`${BASE}/api/flight/lookup?${params}`);
         const data = await res.json();
 
         if (data.error) {
@@ -571,6 +573,23 @@ export default function Travel() {
                     Flight not found — check the number or enter time manually
                   </div>
                 )}
+              </div>
+
+              {/* Airline (auto-filled from lookup or manual entry) */}
+              <div>
+                <label className="text-sm font-bold text-ink-900 block mb-1">
+                  Airline
+                  {lookupState === "found" && airline && (
+                    <span className="ml-1 text-[10px] text-lagoon-600 font-bold">auto</span>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  value={airline}
+                  onChange={e => setAirline(e.target.value)}
+                  placeholder="e.g. American Airlines"
+                  className="w-full bg-white border-none rounded-xl p-3 shadow-sm focus:ring-2 ring-lagoon-600"
+                />
               </div>
 
               {/* Arrival date + time (auto-filled or manual) */}
