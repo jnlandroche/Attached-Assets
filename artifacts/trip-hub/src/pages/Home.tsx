@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { Wallet, Plane, Compass, Megaphone, ChevronRight, PartyPopper, PlaneLanding } from "lucide-react";
+import { Wallet, Plane, Compass, ChevronRight, PartyPopper, PlaneLanding, Thermometer } from "lucide-react";
 import {
   useGetSettings,
   useListBalances,
@@ -14,6 +14,47 @@ import { Progress } from "@/components/ui/progress";
 import { HorizonWave } from "@/components/ui/HorizonWave";
 
 const ease = [0.22, 1, 0.36, 1] as const;
+
+function useCountdown(targetDateStr: string) {
+  const getRemaining = () => {
+    const target = new Date(targetDateStr + "T00:00:00");
+    const now = new Date();
+    const diff = target.getTime() - now.getTime();
+    if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, past: true };
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    return { days, hours, minutes, seconds, past: false };
+  };
+  const [remaining, setRemaining] = useState(getRemaining);
+  useEffect(() => {
+    setRemaining(getRemaining()); // re-seed immediately when date changes
+    const t = setInterval(() => setRemaining(getRemaining()), 1000);
+    return () => clearInterval(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetDateStr]);
+  return remaining;
+}
+
+function CountdownTile({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="flex flex-col items-center">
+      <motion.span
+        key={value}
+        initial={{ opacity: 0.4, y: -4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease }}
+        className="font-display text-[2.6rem] leading-none font-medium text-white tabular-nums"
+      >
+        {String(value).padStart(2, "0")}
+      </motion.span>
+      <span className="text-white/45 text-[9px] font-bold tracking-[0.18em] uppercase mt-1">
+        {label}
+      </span>
+    </div>
+  );
+}
 
 export default function Home() {
   const { data: settingsData } = useGetSettings();
@@ -34,12 +75,22 @@ export default function Home() {
     return () => clearInterval(t);
   }, [heroPhotos.length]);
 
-  const checkIn = settings.check_in_date;
-  const daysToGo = checkIn
-    ? Math.ceil((new Date(checkIn).getTime() - Date.now()) / 86400000)
-    : null;
+  const checkIn = settings.check_in_date || "";
+  const checkOut = settings.check_out_date || "";
+  const countdown = useCountdown(checkIn || "2099-01-01");
+  const hasDate = !!checkIn;
 
-  const totalSpent = balances.reduce((sum: number, b) => sum + Number(b.totalPaid ?? 0), 0);
+  const formatDateRange = () => {
+    if (!checkIn || !checkOut) return null;
+    const inDate = new Date(checkIn + "T00:00:00");
+    const outDate = new Date(checkOut + "T00:00:00");
+    const inStr = inDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const outStr = outDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return `${inStr} – ${outStr}`;
+  };
+  const dateRange = formatDateRange();
+
+  const totalSpent = balances.reduce((sum: number, b) => sum + Number((b as { totalPaid?: number }).totalPaid ?? 0), 0);
   const targetBudget = settings.target_budget ? Number(settings.target_budget) : null;
 
   const householdName = (id: number) =>
@@ -54,148 +105,191 @@ export default function Home() {
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     .slice(0, 3);
 
-  const announcement = settings.announcement;
+  const announcement = settings.announcement && settings.announcement !== "Add a note here for the group — packing reminders, dinner plans, anything else."
+    ? settings.announcement
+    : null;
+
+  const weather = settings.weather_summary || null;
 
   return (
-    <div className="pb-8">
+    <div className="pb-10">
+
       {/* ── HERO ── */}
-      <div className="relative h-[68vh] min-h-[460px] overflow-hidden">
-        {heroPhotos.length > 0 ? (
-          heroPhotos.map((src, i) => (
-            <motion.img
-              key={src}
-              src={src}
-              className="absolute inset-0 h-full w-full object-cover"
-              initial={{ opacity: 0, scale: 1.08 }}
-              animate={{ opacity: i === heroIndex ? 1 : 0, scale: i === heroIndex ? 1 : 1.08 }}
-              transition={{ duration: 1.6, ease }}
-            />
-          ))
-        ) : (
+      <div className="relative h-[75vh] min-h-[520px] overflow-hidden">
+        {/* Photo stack */}
+        {heroPhotos.length > 0 ? heroPhotos.map((src, i) => (
+          <motion.img
+            key={src}
+            src={src}
+            className="absolute inset-0 h-full w-full object-cover"
+            initial={{ opacity: 0, scale: 1.07 }}
+            animate={{ opacity: i === heroIndex ? 1 : 0, scale: i === heroIndex ? 1 : 1.07 }}
+            transition={{ duration: 1.8, ease }}
+          />
+        )) : (
           <div className="absolute inset-0 bg-ink-950" />
         )}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/25 to-ink-950/10" />
-        <div className="absolute inset-0 bg-gradient-to-b from-ink-950/30 via-transparent to-transparent" />
+        {/* Gradient layers */}
+        <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/50 to-ink-950/15" />
+        <div className="absolute inset-0 bg-gradient-to-b from-ink-950/40 via-transparent to-transparent" />
 
-        <div className="relative h-full flex flex-col justify-end px-6 pb-10">
+        {/* Hero content */}
+        <div className="relative h-full flex flex-col justify-end px-5 pb-9 gap-0">
+
+          {/* Location */}
           <motion.p
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 0.5, ease }}
-            className="flex items-center gap-2 text-brass-400 text-[11px] font-bold tracking-[0.16em] uppercase mb-3"
+            transition={{ delay: 0.1, duration: 0.5, ease }}
+            className="flex items-center gap-2 text-brass-400 text-[10px] font-bold tracking-[0.2em] uppercase mb-4"
           >
-            <span className="h-px w-4 bg-brass-400 inline-block" />
+            <span className="h-px w-5 bg-brass-400 inline-block" />
             {settings.property_location || "Chocolate Hole, St. John, USVI"}
           </motion.p>
 
+          {/* Title */}
           <motion.h1
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.6, ease }}
-            className="font-display text-[2.75rem] font-medium text-white leading-[0.98] tracking-tight max-w-[13ch]"
+            transition={{ delay: 0.2, duration: 0.6, ease }}
+            className="font-display text-[3.2rem] font-medium text-white leading-[0.93] tracking-tight"
           >
-            {settings.trip_title || "Jordan's 40th Birthday"}
+            Jordan's<br />40th.
           </motion.h1>
 
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.6, ease }}
-            className="flex items-end gap-4 mt-7"
-          >
-            {daysToGo !== null ? (
-              <div className="flex items-baseline gap-2">
-                <span className="font-display italic text-6xl text-white leading-none">
-                  {daysToGo}
-                </span>
-                <span className="text-white/60 text-sm font-medium pb-1">
-                  {daysToGo === 1 ? "day to go" : daysToGo <= 0 ? "we're here!" : "days to go"}
-                </span>
+          {/* Date range */}
+          {dateRange && (
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.5, ease }}
+              className="text-white/55 text-[13px] font-semibold mt-2 mb-6 tracking-wide"
+            >
+              {dateRange}
+            </motion.p>
+          )}
+
+          {/* ── COUNTDOWN ── */}
+          {hasDate && !countdown.past && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.6, ease }}
+              className="mb-6"
+            >
+              <div className="inline-flex items-end gap-0 bg-white/[0.08] backdrop-blur-sm border border-white/10 rounded-2xl px-5 py-4">
+                <CountdownTile value={countdown.days} label="Days" />
+                <span className="text-white/25 text-2xl font-light pb-4 mx-3">:</span>
+                <CountdownTile value={countdown.hours} label="Hrs" />
+                <span className="text-white/25 text-2xl font-light pb-4 mx-3">:</span>
+                <CountdownTile value={countdown.minutes} label="Min" />
+                <span className="text-white/25 text-2xl font-light pb-4 mx-3">:</span>
+                <CountdownTile value={countdown.seconds} label="Sec" />
               </div>
-            ) : (
-              <p className="text-white/50 text-sm">Dates TBD — check the Villa page</p>
-            )}
-            {settings.weather_summary && (
-              <p className="text-white/50 text-xs pb-1.5 border-l border-white/20 pl-4 max-w-[16ch] leading-snug">
-                {settings.weather_summary}
-              </p>
-            )}
-          </motion.div>
+            </motion.div>
+          )}
+
+          {countdown.past && hasDate && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-papaya-400 font-display text-2xl italic mb-6"
+            >
+              We're here. 🎉
+            </motion.p>
+          )}
+
+          {/* Weather pill — visible, not buried */}
+          {weather && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.55, duration: 0.5, ease }}
+              className="flex items-center gap-2 bg-white/[0.10] backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 self-start"
+            >
+              <Thermometer className="w-3.5 h-3.5 text-papaya-400 shrink-0" />
+              <span className="text-white/80 text-[12px] font-medium leading-snug">
+                {weather}
+              </span>
+            </motion.div>
+          )}
         </div>
 
+        {/* Horizon seam */}
         <div className="absolute bottom-0 left-0 right-0 translate-y-px">
           <HorizonWave />
         </div>
       </div>
 
-      {/* ── CONTENT ── */}
-      <div className="px-5 pt-2 space-y-5">
+      {/* ── BELOW THE FOLD ── */}
+      <div className="px-5 pt-3 space-y-5">
 
-        {/* Announcement */}
+        {/* Announcement — only if something real is written */}
         {announcement && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease }}
           >
-            <Card className="bg-ink-900 border-none text-white shadow-card">
-              <CardContent className="p-4 flex items-start gap-3">
-                <Megaphone className="h-5 w-5 text-brass-400 shrink-0 mt-0.5" />
-                <p className="text-sm text-white/85 leading-relaxed">{announcement}</p>
-              </CardContent>
-            </Card>
+            <div className="rounded-2xl bg-ink-900 px-5 py-4 shadow-card">
+              <p className="text-[10px] font-bold text-brass-400/80 tracking-[0.18em] uppercase mb-2">
+                From the organizer
+              </p>
+              <p className="text-sm text-white/80 leading-relaxed">{announcement}</p>
+            </div>
           </motion.div>
         )}
 
-        {/* Quick actions */}
+        {/* Quick links */}
         <div className="grid grid-cols-3 gap-2.5">
-          {[
-            { to: "/money", icon: Wallet, label: "Add expense", bg: "bg-lagoon-600/10", fg: "text-lagoon-600" },
+          {([
+            { to: "/money", icon: Wallet, label: "Log expense", bg: "bg-lagoon-600/10", fg: "text-lagoon-600" },
             { to: "/travel", icon: Plane, label: "My flight", bg: "bg-papaya-500/10", fg: "text-papaya-600" },
             { to: "/explore", icon: Compass, label: "Explore", bg: "bg-brass-500/10", fg: "text-brass-600" },
-          ].map((a, i) => (
+          ] as const).map((a, i) => (
             <motion.div
               key={a.to}
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 + i * 0.06, duration: 0.4, ease }}
+              transition={{ delay: 0.45 + i * 0.06, duration: 0.4, ease }}
             >
               <Link to={a.to}>
-                <div className="bg-white rounded-2xl shadow-card p-4 flex flex-col items-center gap-2 text-center tap cursor-pointer">
-                  <div className={`rounded-2xl p-2.5 ${a.bg}`}>
+                <div className="bg-white rounded-2xl shadow-card p-4 flex flex-col items-center gap-2 tap cursor-pointer">
+                  <div className={`rounded-xl p-2.5 ${a.bg}`}>
                     <a.icon className={`h-5 w-5 ${a.fg}`} />
                   </div>
-                  <span className="text-[12px] font-semibold text-ink-900 leading-tight">{a.label}</span>
+                  <span className="text-[11px] font-bold text-ink-900 tracking-wide uppercase">{a.label}</span>
                 </div>
               </Link>
             </motion.div>
           ))}
         </div>
 
-        {/* Upcoming arrivals */}
+        {/* First to land */}
         {upcomingArrivals.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
+            viewport={{ once: true, margin: "-50px" }}
             transition={{ duration: 0.45, ease }}
           >
-            <Card className="shadow-card">
+            <Card className="shadow-card border-0">
               <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-[11px] font-bold text-ink-900/35 uppercase tracking-[0.1em]">
-                    Upcoming arrivals
-                  </p>
+                <div className="flex items-end justify-between mb-4">
+                  <div>
+                    <p className="text-[10px] font-bold text-ink-900/30 tracking-[0.18em] uppercase mb-0.5">Arrivals</p>
+                    <h2 className="font-display text-xl font-medium text-ink-950">First to land</h2>
+                  </div>
                   <Link to="/travel">
-                    <span className="flex items-center gap-1 text-xs font-semibold text-lagoon-600 group">
+                    <span className="flex items-center gap-1 text-xs font-bold text-lagoon-600 tracking-wide uppercase group">
                       All flights <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                     </span>
                   </Link>
                 </div>
                 <div className="space-y-3">
-                  {upcomingArrivals.map((g) => (
-                    <div key={g.arrivalDatetime} className="flex items-center gap-3">
+                  {upcomingArrivals.map((g, idx) => (
+                    <div key={idx} className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-lagoon-600/10 flex items-center justify-center shrink-0">
                         <PlaneLanding className="w-4 h-4 text-lagoon-600" />
                       </div>
@@ -203,7 +297,7 @@ export default function Home() {
                         <p className="text-[13px] font-semibold text-ink-900 truncate">
                           {householdName(g.householdId!)}
                         </p>
-                        <p className="text-xs text-ink-900/45">
+                        <p className="text-xs text-ink-900/40">
                           {g.arrivalDatetime
                             ? new Date(g.arrivalDatetime).toLocaleDateString("en-US", {
                                 weekday: "short", month: "short", day: "numeric",
@@ -220,49 +314,46 @@ export default function Home() {
           </motion.div>
         )}
 
-        {/* Money at a glance */}
+        {/* The ledger */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-60px" }}
+          viewport={{ once: true, margin: "-50px" }}
           transition={{ duration: 0.45, ease }}
         >
-          <Card className="shadow-card">
+          <Card className="shadow-card border-0">
             <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-[11px] font-bold text-ink-900/35 uppercase tracking-[0.1em]">
-                  Trip spend
-                </p>
-                <p className="font-display text-2xl text-ink-900">
+              <div className="flex items-end justify-between mb-1">
+                <div>
+                  <p className="text-[10px] font-bold text-ink-900/30 tracking-[0.18em] uppercase mb-0.5">Money</p>
+                  <h2 className="font-display text-xl font-medium text-ink-950">The ledger</h2>
+                </div>
+                <p className="font-display text-2xl font-medium text-ink-950">
                   ${totalSpent.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </p>
               </div>
 
               {targetBudget && (
-                <div className="mb-4 mt-2">
-                  <Progress
-                    value={Math.min(100, (totalSpent / targetBudget) * 100)}
-                    className="h-1.5"
-                  />
-                  <p className="text-xs text-ink-900/40 mt-1.5">
-                    of ${targetBudget.toLocaleString()} planned
-                  </p>
+                <div className="mt-3 mb-1">
+                  <div className="flex justify-between text-xs text-ink-900/40 mb-1.5">
+                    <span>Spent</span>
+                    <span>${targetBudget.toLocaleString()} budgeted</span>
+                  </div>
+                  <Progress value={Math.min(100, (totalSpent / targetBudget) * 100)} className="h-1.5" />
                 </div>
               )}
 
               {(balances as { householdId: number; householdName: string; netBalance: number }[]).length > 0 && (
-                <div className="space-y-2 mt-4">
+                <div className="space-y-2.5 mt-5">
                   {(balances as { householdId: number; householdName: string; netBalance: number }[]).map((b) => (
-                    <div key={b.householdId} className="flex justify-between items-center text-sm">
-                      <span className="font-medium text-ink-900">{b.householdName}</span>
-                      <span
-                        className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                          b.netBalance >= 0
-                            ? "bg-lagoon-600/10 text-lagoon-600"
-                            : "bg-papaya-500/10 text-papaya-600"
-                        }`}
-                      >
-                        {b.netBalance >= 0 ? "+" : ""}${Number(b.netBalance).toFixed(0)}
+                    <div key={b.householdId} className="flex justify-between items-center">
+                      <span className="text-[13px] font-semibold text-ink-900">{b.householdName}</span>
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                        b.netBalance >= 0
+                          ? "bg-lagoon-600/10 text-lagoon-600"
+                          : "bg-papaya-500/10 text-papaya-600"
+                      }`}>
+                        {b.netBalance >= 0 ? "+" : ""}${Math.abs(Number(b.netBalance)).toFixed(0)}
                       </span>
                     </div>
                   ))}
@@ -275,11 +366,11 @@ export default function Home() {
                     <div key={e.id} className="flex justify-between items-center">
                       <div>
                         <p className="text-[13px] font-semibold text-ink-900">{e.description}</p>
-                        <p className="text-xs text-ink-900/45">
-                          {e.category} · {householdName(e.paidByHouseholdId!)}
+                        <p className="text-xs text-ink-900/40 capitalize">
+                          {e.category}{e.paidByHouseholdId ? ` · ${householdName(e.paidByHouseholdId)}` : ""}
                         </p>
                       </div>
-                      <p className="font-semibold text-ink-900 text-[13px]">
+                      <p className="text-[13px] font-bold text-ink-900">
                         ${Number(e.totalAmount).toFixed(0)}
                       </p>
                     </div>
@@ -288,28 +379,29 @@ export default function Home() {
               )}
 
               <Link to="/money">
-                <div className="flex items-center gap-1 text-sm font-semibold text-lagoon-600 mt-4 group cursor-pointer">
-                  Open the ledger
-                  <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                <div className="flex items-center gap-1.5 text-xs font-bold text-lagoon-600 mt-5 tracking-wide uppercase group cursor-pointer">
+                  Open full ledger
+                  <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                 </div>
               </Link>
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Birthday photos strip */}
+        {/* Birthday photos */}
         {birthdayPhotos.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
+            viewport={{ once: true, margin: "-50px" }}
             transition={{ duration: 0.45, ease }}
           >
-            <div className="flex items-center gap-2 mb-3 px-0.5">
-              <PartyPopper className="h-4 w-4 text-papaya-500" />
-              <p className="text-[11px] font-bold text-ink-900/35 uppercase tracking-[0.1em]">
-                Jordan turns 40
-              </p>
+            <div className="flex items-end justify-between mb-3 px-0.5">
+              <div>
+                <p className="text-[10px] font-bold text-ink-900/30 tracking-[0.18em] uppercase mb-0.5">The guest of honor</p>
+                <h2 className="font-display text-xl font-medium text-ink-950">Celebrating Jordan</h2>
+              </div>
+              <PartyPopper className="h-5 w-5 text-papaya-500 mb-0.5" />
             </div>
             <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 -mx-5 px-5">
               {birthdayPhotos.map((src, i) => (
@@ -317,15 +409,14 @@ export default function Home() {
                   key={src}
                   src={src}
                   whileTap={{ scale: 0.95 }}
-                  whileHover={{ scale: 1.02 }}
-                  transition={{ duration: 0.2 }}
-                  className="h-36 w-36 object-cover rounded-2xl shrink-0 shadow-card"
+                  className="h-52 w-40 object-cover rounded-2xl shrink-0 shadow-card"
                   alt={`Jordan — photo ${i + 1}`}
                 />
               ))}
             </div>
           </motion.div>
         )}
+
       </div>
     </div>
   );
