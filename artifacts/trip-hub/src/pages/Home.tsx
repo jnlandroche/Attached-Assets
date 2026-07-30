@@ -323,78 +323,121 @@ export default function Home() {
     <div className="pb-10">
 
       {/* ── HERO ── */}
-      <div className="relative h-[62vh] min-h-[460px] max-h-[600px] overflow-hidden">
+      <div className="relative h-[72vh] min-h-[540px] max-h-[720px] overflow-hidden">
+
         {/* Photo stack */}
         {heroPhotos.length > 0 ? heroPhotos.map((src, i) => (
           <motion.img
             key={src}
             src={src}
             className="absolute inset-0 h-full w-full object-cover"
-            initial={{ opacity: 0, scale: 1.07 }}
-            animate={{ opacity: i === heroIndex ? 1 : 0, scale: i === heroIndex ? 1 : 1.07 }}
-            transition={{ duration: 1.8, ease }}
+            initial={{ opacity: 0, scale: 1.06 }}
+            animate={{ opacity: i === heroIndex ? 1 : 0, scale: i === heroIndex ? 1 : 1.06 }}
+            transition={{ duration: 2.2, ease }}
           />
         )) : (
           <div className="absolute inset-0 bg-ink-950" />
         )}
 
-        {/* Gradient layers — strong enough for legibility on any photo */}
-        <div className="absolute inset-0 bg-gradient-to-t from-ink-950/95 via-ink-950/55 to-ink-950/20" />
-        <div className="absolute inset-0 bg-gradient-to-b from-ink-950/50 via-transparent to-transparent" />
+        {/* Gradient system — cinematic layering */}
+        {/* Deep bottom lift */}
+        <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/65 to-transparent" />
+        {/* Top atmospheric shadow */}
+        <div className="absolute inset-0 bg-gradient-to-b from-ink-950/55 via-transparent to-transparent" />
+        {/* Side vignettes */}
+        <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-ink-950/40 to-transparent" />
+        <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-ink-950/40 to-transparent" />
 
-        {/* Hero content */}
-        <div className="relative h-full flex flex-col justify-end px-5 pb-9 gap-0">
-
-          {/* Location */}
-          <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.5, ease }}
-            className="flex flex-row items-center gap-2 mb-4"
+        {/* ── Editorial top bar ── */}
+        <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-5 pt-5">
+          <motion.span
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8, duration: 0.6 }}
+            className="text-[9px] font-bold tracking-[0.24em] uppercase text-white/25 select-none"
           >
-            <span className="block h-px w-5 bg-brass-400 shrink-0" />
-            <span className="text-brass-400 text-[10px] font-bold tracking-[0.18em] uppercase leading-none">
-              {settings.property_location || "Chocolate Hole, St. John, USVI"}
+            St. John · USVI · 2026
+          </motion.span>
+
+          {/* Slide indicator dots */}
+          {heroPhotos.length > 1 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1, duration: 0.5 }}
+              className="flex items-center gap-1.5"
+            >
+              {heroPhotos.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setHeroIndex(i)}
+                  className={`h-[3px] rounded-full transition-all duration-400 ${
+                    i === heroIndex ? "w-6 bg-white" : "w-2 bg-white/30"
+                  }`}
+                />
+              ))}
+            </motion.div>
+          )}
+        </div>
+
+        {/* ── Main content — anchored to bottom ── */}
+        <div className="relative h-full flex flex-col justify-end px-5 pb-7">
+
+          {/* Location eyebrow — centered with ruled lines */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15, duration: 0.7, ease }}
+            className="flex items-center gap-3 mb-5"
+          >
+            <div className="h-px flex-1 bg-white/18" />
+            <span className="text-[9px] font-bold tracking-[0.24em] uppercase text-white/45 shrink-0">
+              {(settings.property_location || "Chocolate Hole · St. John, USVI").replace(",", " ·")}
             </span>
+            <div className="h-px flex-1 bg-white/18" />
           </motion.div>
 
-          {/* Title */}
+          {/* Title — editorial scale */}
           <motion.h1
-            initial={{ opacity: 0, y: 14 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.6, ease }}
-            className="font-display text-[3.2rem] font-medium text-white leading-[0.93] tracking-tight"
+            transition={{ delay: 0.25, duration: 0.75, ease }}
+            className="font-display tracking-tight leading-[0.87] mb-5"
           >
-            Jordan's<br />40th.
+            <span className="block text-[4.5rem] font-medium text-white">Jordan's</span>
+            <span className="block text-[4.5rem] font-medium text-brass-400">40th.</span>
           </motion.h1>
 
-          {/* Date range */}
+          {/* Date badge */}
           {dateRange && (
-            <motion.p
+            <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.5, ease }}
-              className="text-white/55 text-[13px] font-semibold mt-2 mb-6 tracking-wide"
+              transition={{ delay: 0.35, duration: 0.5, ease }}
+              className="mb-5"
             >
-              {dateRange}
-            </motion.p>
+              <span className="inline-flex items-center gap-2 border border-white/18 rounded-full px-4 py-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-lagoon-400 shrink-0" />
+                <span className="text-[11px] font-semibold text-white/55 tracking-wide">{dateRange} · 7 nights</span>
+              </span>
+            </motion.div>
           )}
 
-          {/* ── COUNTDOWN ── */}
+          {/* Countdown */}
           {hasDate && !countdown.past && (
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.6, ease }}
-              className="mb-6"
+              transition={{ delay: 0.45, duration: 0.6, ease }}
+              className="mb-4"
             >
-              <div className="inline-flex items-end gap-0 bg-white/[0.08] backdrop-blur-sm border border-white/10 rounded-2xl px-5 py-4">
+              <div className="inline-flex items-end bg-white/[0.07] backdrop-blur-md border border-white/[0.10] rounded-2xl px-5 py-3.5 gap-0">
                 <CountdownTile value={countdown.days} label="Days" />
-                <span className="text-white/25 text-2xl font-light pb-4 mx-3">:</span>
+                <span className="text-white/20 text-xl font-light pb-[14px] mx-2.5">:</span>
                 <CountdownTile value={countdown.hours} label="Hrs" />
-                <span className="text-white/25 text-2xl font-light pb-4 mx-3">:</span>
+                <span className="text-white/20 text-xl font-light pb-[14px] mx-2.5">:</span>
                 <CountdownTile value={countdown.minutes} label="Min" />
-                <span className="text-white/25 text-2xl font-light pb-4 mx-3">:</span>
+                <span className="text-white/20 text-xl font-light pb-[14px] mx-2.5">:</span>
                 <CountdownTile value={countdown.seconds} label="Sec" />
               </div>
             </motion.div>
@@ -404,40 +447,35 @@ export default function Home() {
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-papaya-400 font-display text-2xl italic mb-6"
+              className="text-papaya-400 font-display text-2xl italic mb-4"
             >
               We're here. 🎉
             </motion.p>
           )}
 
-          {/* Weather teaser pill */}
+          {/* Weather teaser */}
           {(() => {
-            // Show live forecast when within 10 days of trip and live data is available
             const daysUntilTrip = checkIn
               ? Math.ceil((new Date(checkIn + "T00:00:00").getTime() - Date.now()) / (1000 * 60 * 60 * 24))
               : Infinity;
             const useLive = weatherData?.source === "live" && (weatherData.days?.length ?? 0) > 0 && daysUntilTrip <= 10;
-            // During the trip, prefer the forecast entry matching today's date
             const todayLabel = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
             const todayDay = useLive
               ? (weatherData!.days.find(d => d.date === todayLabel) ?? weatherData!.days[0])
               : null;
-            const day0 = todayDay;
-            const teaserEmoji = day0 ? day0.emoji : "☀️";
-            const teaserText = day0
-              ? `${day0.low}–${day0.high}°F · ${day0.label}`
+            const teaserEmoji = todayDay ? todayDay.emoji : "☀️";
+            const teaserText = todayDay
+              ? `${todayDay.low}–${todayDay.high}°F · ${todayDay.label}`
               : "85–88°F · Mostly sunny, brief showers possible";
             return (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.55, duration: 0.5, ease }}
-                className="flex items-center gap-2 bg-white/[0.10] backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 self-start"
+                transition={{ delay: 0.6, duration: 0.5, ease }}
+                className="flex items-center gap-2 bg-white/[0.09] backdrop-blur-sm border border-white/[0.10] rounded-full px-4 py-2 self-start"
               >
-                <span className="text-base leading-none">{teaserEmoji}</span>
-                <span className="text-white/80 text-[12px] font-medium leading-snug">
-                  {teaserText}
-                </span>
+                <span className="text-[15px] leading-none">{teaserEmoji}</span>
+                <span className="text-white/75 text-[12px] font-medium">{teaserText}</span>
               </motion.div>
             );
           })()}
