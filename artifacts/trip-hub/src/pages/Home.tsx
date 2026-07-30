@@ -346,15 +346,17 @@ export default function Home() {
         <div className="relative h-full flex flex-col justify-end px-5 pb-9 gap-0">
 
           {/* Location */}
-          <motion.p
+          <motion.div
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.5, ease }}
-            className="flex items-center gap-2 text-brass-400 text-[10px] font-bold tracking-[0.2em] uppercase mb-4"
+            className="flex flex-row items-center gap-2 mb-4"
           >
-            <span className="h-px w-5 bg-brass-400 inline-block" />
-            {settings.property_location || "Chocolate Hole, St. John, USVI"}
-          </motion.p>
+            <span className="block h-px w-5 bg-brass-400 shrink-0" />
+            <span className="text-brass-400 text-[10px] font-bold tracking-[0.18em] uppercase leading-none">
+              {settings.property_location || "Chocolate Hole, St. John, USVI"}
+            </span>
+          </motion.div>
 
           {/* Title */}
           <motion.h1
