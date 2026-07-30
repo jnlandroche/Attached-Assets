@@ -6,6 +6,7 @@ import guideRouter from "./guide";
 import itineraryRouter from "./itinerary";
 import imagesRouter from "./images";
 import weatherRouter from "./weather";
+import flightsRouter from "./flights";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(guideRouter);
 router.use(itineraryRouter);
 router.use(imagesRouter);
 router.use(weatherRouter);
+router.use(flightsRouter);
 
 export default router;
