@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   useListItineraryItems, useCreateItineraryItem, useDeleteItineraryItem,
   useUpdateItineraryItem, getListItineraryItemsQueryKey,
+  useListGuests, useListHouseholds,
 } from "@workspace/api-client-react";
 import {
   Sun, Sunset, Moon, Utensils, Sailboat, Map, Plus, Trash2,
@@ -25,6 +26,39 @@ const TRIP_DAYS = [
   { label: "Day 7",            shortLabel: "Day 7",  date: "Oct 23", dow: "Fri", icon: Sun,           color: "text-brass-500"   },
   { label: "Final Day",        shortLabel: "Final",  date: "Oct 24", dow: "Sat", icon: PlaneTakeoff,  color: "text-papaya-500"  },
 ];
+
+// ── Flight date → day label map (USVI = America/St_Thomas, AST UTC-4) ────────
+const DATE_TO_DAY: Record<string, string> = Object.fromEntries(
+  TRIP_DAYS.map(d => {
+    const [mon, day] = d.date.split(" ");
+    const MONTHS: Record<string, string> = { Jan:"01",Feb:"02",Mar:"03",Apr:"04",May:"05",Jun:"06",Jul:"07",Aug:"08",Sep:"09",Oct:"10",Nov:"11",Dec:"12" };
+    return [`2026-${MONTHS[mon]}-${day.padStart(2,"0")}`, d.label];
+  })
+);
+
+function toUsviDate(iso: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/St_Thomas", year:"numeric", month:"2-digit", day:"2-digit",
+  }).formatToParts(new Date(iso));
+  const p = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
+function toUsviTime(iso: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/St_Thomas", hour:"numeric", minute:"2-digit", hour12: true,
+  }).format(new Date(iso));
+}
+
+function timeToMinutes(t: string | null | undefined): number {
+  if (!t) return 9999;
+  const m = t.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if (!m) return 9999;
+  let h = parseInt(m[1]); const min = parseInt(m[2]); const ap = m[3].toUpperCase();
+  if (ap === "PM" && h !== 12) h += 12;
+  if (ap === "AM" && h === 12) h = 0;
+  return h * 60 + min;
+}
 
 // ── Category config ───────────────────────────────────────────────────────────
 const CATEGORY_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
@@ -97,6 +131,41 @@ function TimelineItem({
   );
 }
 
+// ── Flight event card (read-only) ─────────────────────────────────────────────
+function FlightEventItem({ type, householdName, flightNumber, time }: {
+  type: "arrival" | "departure"; householdName: string; flightNumber: string; time: string;
+}) {
+  const Icon = type === "arrival" ? PlaneLanding : PlaneTakeoff;
+  const bg    = type === "arrival" ? "bg-lagoon-50"   : "bg-papaya-50";
+  const color = type === "arrival" ? "text-lagoon-600" : "text-papaya-500";
+  const border = type === "arrival" ? "border-lagoon-200 bg-lagoon-50/50" : "border-papaya-200 bg-papaya-50/50";
+  const badge  = type === "arrival" ? "bg-lagoon-100 text-lagoon-700"     : "bg-papaya-100 text-papaya-700";
+  return (
+    <div className="flex gap-3">
+      <div className="flex flex-col items-center shrink-0">
+        <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center z-10`}>
+          <Icon className={`w-4.5 h-4.5 ${color}`} />
+        </div>
+        <div className="w-0.5 flex-1 bg-sand-200 mt-1" />
+      </div>
+      <div className={`flex-1 rounded-2xl border border-dashed ${border} p-4 mb-4 min-w-0`}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            {time && <p className={`text-[11px] font-bold uppercase tracking-wide mb-0.5 ${color}`}>{time}</p>}
+            <h3 className="font-bold text-ink-950 text-[15px] leading-snug">
+              {type === "arrival" ? "Arriving" : "Departing"} · {householdName}
+            </h3>
+            {flightNumber && <p className="text-[13px] text-ink-500 mt-1 font-medium">{flightNumber}</p>}
+          </div>
+          <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${badge}`}>
+            {type === "arrival" ? "Arrival" : "Departure"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function Weekend() {
   const { data: items = [], isLoading } = useListItineraryItems();
@@ -104,6 +173,8 @@ export default function Weekend() {
   const updateItem = useUpdateItineraryItem();
   const deleteItem = useDeleteItineraryItem();
   const queryClient = useQueryClient();
+  const { data: guests = [] } = useListGuests();
+  const { data: households = [] } = useListHouseholds();
 
   const [activeDay, setActiveDay] = useState(TRIP_DAYS[0].label);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -123,6 +194,32 @@ export default function Weekend() {
     acc[item.dayLabel].push(item);
     return acc;
   }, {} as Record<string, typeof items>);
+
+  // Synthetic flight events derived from guest data
+  type FlightEvent = {
+    key: string; type: "arrival" | "departure";
+    householdName: string; flightNumber: string; time: string;
+    dayLabel: string; sortMin: number;
+  };
+  const flightEvents: FlightEvent[] = [];
+  for (const g of guests as any[]) {
+    const hh = (households as any[]).find(h => h.id === g.householdId);
+    const hhName: string = hh?.name ?? g.name ?? "Guest";
+    if (g.arrivalDatetime) {
+      const dayLabel = DATE_TO_DAY[toUsviDate(g.arrivalDatetime)];
+      if (dayLabel) {
+        const time = toUsviTime(g.arrivalDatetime);
+        flightEvents.push({ key: `arr-${g.id}`, type: "arrival", householdName: hhName, flightNumber: g.arrivalFlightNumber ?? "", time, dayLabel, sortMin: timeToMinutes(time) });
+      }
+    }
+    if (g.departureDatetime) {
+      const dayLabel = DATE_TO_DAY[toUsviDate(g.departureDatetime)];
+      if (dayLabel) {
+        const time = toUsviTime(g.departureDatetime);
+        flightEvents.push({ key: `dep-${g.id}`, type: "departure", householdName: hhName, flightNumber: g.departureFlightNumber ?? "", time, dayLabel, sortMin: timeToMinutes(time) });
+      }
+    }
+  }
 
   // Scroll active day tab into view
   useEffect(() => {
@@ -229,7 +326,7 @@ export default function Weekend() {
       >
         {TRIP_DAYS.map(day => {
           const isActive = day.label === activeDay;
-          const hasItems = (byDay[day.label]?.length ?? 0) > 0;
+          const hasItems = (byDay[day.label]?.length ?? 0) > 0 || flightEvents.some(f => f.dayLabel === day.label);
           const DayIcon = day.icon;
 
           return (
@@ -288,33 +385,50 @@ export default function Weekend() {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.25, ease }}
           >
-            {activeDayItems.length > 0 ? (
-              <div>
-                <AnimatePresence>
-                  {activeDayItems.map(item => (
-                    <TimelineItem
-                      key={item.id}
-                      item={item}
-                      onEdit={handleOpenEdit}
-                      onDelete={handleDelete}
-                    />
-                  ))}
-                </AnimatePresence>
-              </div>
-            ) : (
-              <button
-                onClick={() => handleOpenAdd(activeDay)}
-                className="w-full border-2 border-dashed border-sand-200 rounded-3xl py-12 flex flex-col items-center gap-3 tap hover:border-lagoon-300 hover:bg-lagoon-50/30 transition-colors"
-              >
-                <div className="w-12 h-12 rounded-2xl bg-sand-100 flex items-center justify-center">
-                  <Plus className="w-6 h-6 text-ink-300" />
+            {(() => {
+              const activeDayFlights = flightEvents
+                .filter(f => f.dayLabel === activeDay)
+                .sort((a, b) => a.sortMin - b.sortMin);
+              const regularItems = (byDay[activeDay] ?? []).map(item => ({
+                ...item, _sortMin: timeToMinutes(item.time), _isFlight: false as const,
+              }));
+              const flightItems = activeDayFlights.map(f => ({ ...f, _sortMin: f.sortMin, _isFlight: true as const }));
+              const allItems = [...regularItems, ...flightItems].sort((a, b) => a._sortMin - b._sortMin);
+
+              if (allItems.length > 0) return (
+                <div>
+                  <AnimatePresence>
+                    {allItems.map(item =>
+                      item._isFlight ? (
+                        <FlightEventItem key={(item as any).key} {...(item as any)} />
+                      ) : (
+                        <TimelineItem
+                          key={(item as any).id}
+                          item={item}
+                          onEdit={handleOpenEdit}
+                          onDelete={handleDelete}
+                        />
+                      )
+                    )}
+                  </AnimatePresence>
                 </div>
-                <div className="text-center">
-                  <p className="font-semibold text-ink-900/50 text-[14px]">Nothing planned yet</p>
-                  <p className="text-[12px] text-ink-400 mt-0.5">Tap to add something for {activeDayMeta.dow}</p>
-                </div>
-              </button>
-            )}
+              );
+
+              return (
+                <button
+                  onClick={() => handleOpenAdd(activeDay)}
+                  className="w-full border-2 border-dashed border-sand-200 rounded-3xl py-12 flex flex-col items-center gap-3 tap hover:border-lagoon-300 hover:bg-lagoon-50/30 transition-colors"
+                >
+                  <div className="w-12 h-12 rounded-2xl bg-sand-100 flex items-center justify-center">
+                    <Plus className="w-6 h-6 text-ink-300" />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-semibold text-ink-900/50 text-[14px]">Nothing planned yet</p>
+                    <p className="text-[12px] text-ink-400 mt-0.5">Tap to add something for {activeDayMeta.dow}</p>
+                  </div>
+                </button>
+              );
+            })()}
           </motion.div>
         </AnimatePresence>
       </div>
