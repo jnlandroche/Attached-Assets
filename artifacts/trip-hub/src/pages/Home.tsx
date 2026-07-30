@@ -22,6 +22,8 @@ type WeatherData = { source: "live" | "historical"; days: WeatherDay[] };
 function WeatherForecast({ data }: { data: WeatherData | null }) {
   const days = data?.days ?? [];
   const source = data?.source ?? "historical";
+  // Tracks today's date label; updates automatically at midnight via useTodayLabel
+  const todayLabel = useTodayLabel();
   if (days.length === 0) return null;
 
   const rangeMin = Math.min(...days.map(d => d.low));
@@ -29,7 +31,6 @@ function WeatherForecast({ data }: { data: WeatherData | null }) {
   const isLive = source === "live";
 
   // Highlight today's tile; fall back to day 0 if today isn't in the forecast
-  const todayLabel = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const todayIdx = days.findIndex(d => d.date === todayLabel);
   const highlightIdx = todayIdx >= 0 ? todayIdx : 0;
 
@@ -211,6 +212,27 @@ function TripCalendar({ checkIn, checkOut }: { checkIn: string; checkOut: string
   );
 }
 
+// Re-evaluates at midnight so "today" highlights flip without a page reload
+function useTodayLabel() {
+  const getLabel = () => new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const [todayLabel, setTodayLabel] = useState(getLabel);
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const scheduleNextMidnight = () => {
+      const now = new Date();
+      const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      const msUntilMidnight = midnight.getTime() - now.getTime();
+      timeoutId = setTimeout(() => {
+        setTodayLabel(getLabel());
+        scheduleNextMidnight();
+      }, msUntilMidnight);
+    };
+    scheduleNextMidnight();
+    return () => clearTimeout(timeoutId);
+  }, []);
+  return todayLabel;
+}
+
 function useCountdown(targetDateStr: string) {
   const getRemaining = () => {
     const target = new Date(targetDateStr + "T00:00:00");
@@ -258,6 +280,7 @@ export default function Home() {
   const { data: guests = [] } = useListGuests();
   const { data: households = [] } = useListHouseholds();
   const { data: expenses = [] } = useListExpenses();
+  const todayLabel = useTodayLabel();
 
   const settings: Record<string, string> = (settingsData as Record<string, string>) || {};
 
@@ -478,7 +501,6 @@ export default function Home() {
               ? Math.ceil((new Date(checkIn + "T00:00:00").getTime() - Date.now()) / (1000 * 60 * 60 * 24))
               : Infinity;
             const useLive = weatherData?.source === "live" && (weatherData.days?.length ?? 0) > 0 && daysUntilTrip <= 10;
-            const todayLabel = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
             const todayDay = useLive
               ? (weatherData!.days.find(d => d.date === todayLabel) ?? weatherData!.days[0])
               : null;
