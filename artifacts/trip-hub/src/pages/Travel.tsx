@@ -39,6 +39,7 @@ const FlightStatusBadge = ({ status, onClick }: { status?: string | null; onClic
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 /** Format an ISO datetime string in USVI local time (AST = UTC-4, no DST). */
+// Convert a real UTC ISO timestamp → USVI local parts (for API flight-lookup results)
 function toUsviParts(iso: string): { date: string; time: string } {
   const dt = new Date(iso);
   const usvi = new Intl.DateTimeFormat("en-US", {
@@ -55,6 +56,31 @@ function toUsviParts(iso: string): { date: string; time: string } {
     date: `${p.year}-${p.month}-${p.day}`,
     time: `${p.hour === "24" ? "00" : p.hour}:${p.minute}`,
   };
+}
+
+// Extract date/time from a user-saved datetime — no timezone conversion,
+// just read back the UTC numbers which equal exactly what was typed.
+function naiveParts(iso: string): { date: string; time: string } {
+  const dt = new Date(iso);
+  const y = dt.getUTCFullYear();
+  const mo = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(dt.getUTCDate()).padStart(2, "0");
+  const h = String(dt.getUTCHours()).padStart(2, "0");
+  const m = String(dt.getUTCMinutes()).padStart(2, "0");
+  return { date: `${y}-${mo}-${d}`, time: `${h}:${m}` };
+}
+
+// Format a user-saved datetime for display — no timezone conversion.
+function naiveDisplay(iso: string): string {
+  const dt = new Date(iso);
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const mon = MONTHS[dt.getUTCMonth()];
+  const day = dt.getUTCDate();
+  let h = dt.getUTCHours();
+  const m = String(dt.getUTCMinutes()).padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${mon} ${day}, ${h}:${m} ${ampm}`;
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -245,8 +271,8 @@ export default function Travel() {
 
   // ── Open edit drawer ────────────────────────────────────────────────────
   const openEdit = (guest: any) => {
-    const arrParsed = guest.arrivalDatetime ? toUsviParts(guest.arrivalDatetime) : { date: "", time: "" };
-    const depParsed = guest.departureDatetime ? toUsviParts(guest.departureDatetime) : { date: "", time: "" };
+    const arrParsed = guest.arrivalDatetime ? naiveParts(guest.arrivalDatetime) : { date: "", time: "" };
+    const depParsed = guest.departureDatetime ? naiveParts(guest.departureDatetime) : { date: "", time: "" };
     setEditGuest({
       id: guest.id,
       name: guest.name,
@@ -265,20 +291,19 @@ export default function Travel() {
     e.preventDefault();
     if (!editGuest) return;
 
-    // Always treat manually-entered times as USVI time (UTC-4, no DST)
-    const USVI = "-04:00";
+    // Store as UTC numerically equal to what the user typed (no tz shift)
     let arrivalDatetime: string | null = null;
     if (editGuest.arrivalDate && editGuest.arrivalTime) {
-      arrivalDatetime = new Date(`${editGuest.arrivalDate}T${editGuest.arrivalTime}${USVI}`).toISOString();
+      arrivalDatetime = new Date(`${editGuest.arrivalDate}T${editGuest.arrivalTime}:00Z`).toISOString();
     } else if (editGuest.arrivalDate) {
-      arrivalDatetime = new Date(`${editGuest.arrivalDate}T00:00${USVI}`).toISOString();
+      arrivalDatetime = new Date(`${editGuest.arrivalDate}T00:00:00Z`).toISOString();
     }
 
     let departureDatetime: string | null = null;
     if (editGuest.departureDate && editGuest.departureTime) {
-      departureDatetime = new Date(`${editGuest.departureDate}T${editGuest.departureTime}${USVI}`).toISOString();
+      departureDatetime = new Date(`${editGuest.departureDate}T${editGuest.departureTime}:00Z`).toISOString();
     } else if (editGuest.departureDate) {
-      departureDatetime = new Date(`${editGuest.departureDate}T00:00${USVI}`).toISOString();
+      departureDatetime = new Date(`${editGuest.departureDate}T00:00:00Z`).toISOString();
     }
 
     updateGuest.mutate(
@@ -310,10 +335,9 @@ export default function Travel() {
     e.preventDefault();
     if (!name || !householdId) return toast.error("Name and Household required");
 
-    const USVI = "-04:00";
     let arrivalDatetime: string | null = null;
     if (arrivalDate && arrivalTime) {
-      arrivalDatetime = new Date(`${arrivalDate}T${arrivalTime}${USVI}`).toISOString();
+      arrivalDatetime = new Date(`${arrivalDate}T${arrivalTime}:00Z`).toISOString();
     }
 
     createGuest.mutate({
@@ -382,7 +406,7 @@ export default function Travel() {
                   <div>
                     <div className="text-xs font-bold text-ink-500 uppercase">Time</div>
                     <div className="text-sm font-medium text-ink-900">
-                      {format(parseISO(guest.arrivalDatetime!), "MMM d, h:mm a")}
+                      {naiveDisplay(guest.arrivalDatetime!)}
                     </div>
                   </div>
                   <div>
@@ -429,7 +453,7 @@ export default function Travel() {
                   <div>
                     <div className="text-xs font-bold text-ink-500 uppercase">Time</div>
                     <div className="text-sm font-medium text-ink-900">
-                      {format(parseISO(guest.departureDatetime!), "MMM d, h:mm a")}
+                      {naiveDisplay(guest.departureDatetime!)}
                     </div>
                   </div>
                   <div>
