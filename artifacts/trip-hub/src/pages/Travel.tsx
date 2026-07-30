@@ -197,7 +197,7 @@ export default function Travel() {
           setEditGuest(prev => prev ? {
             ...prev,
             departureDate: prev.departureDate || date,
-            departureTime: time,
+            departureTime: prev.departureTime || time,
           } : prev);
           setDepLookupState("found");
         } else {
