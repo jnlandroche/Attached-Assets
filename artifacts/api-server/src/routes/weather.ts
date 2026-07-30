@@ -1,4 +1,7 @@
 import { Router, type IRouter } from "express";
+import { readFileSync, writeFileSync } from "fs";
+import { join } from "path";
+import { tmpdir } from "os";
 
 const router: IRouter = Router();
 
@@ -24,6 +27,7 @@ const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const CACHE_FILE = join(tmpdir(), "trip-hub-weather-cache.json");
 
 interface ForecastDay {
   dow: string;
@@ -41,7 +45,18 @@ interface CacheEntry {
   expiresAt: number;
 }
 
+// Seed in-memory cache from disk on startup so a server restart doesn't cold-start
 let forecastCache: CacheEntry | null = null;
+try {
+  const raw = readFileSync(CACHE_FILE, "utf8");
+  const parsed = JSON.parse(raw) as CacheEntry;
+  if (parsed && typeof parsed.expiresAt === "number" && Date.now() < parsed.expiresAt) {
+    forecastCache = parsed;
+    console.log(`[weather] Loaded cache from disk (expires ${parsed.cachedUntil})`);
+  }
+} catch {
+  // No cache file yet — that's fine
+}
 
 function wmoToCondition(code: number): { emoji: string; label: string } {
   if (code === 0)                         return { emoji: "☀️",  label: "Sunny" };
@@ -115,6 +130,13 @@ router.get("/weather", async (_req, res): Promise<void> => {
     const cachedUntil = new Date(expiresAt).toISOString();
 
     forecastCache = { days, cachedUntil, expiresAt };
+
+    // Persist to disk so a server restart reuses this entry if still fresh
+    try {
+      writeFileSync(CACHE_FILE, JSON.stringify(forecastCache), "utf8");
+    } catch (writeErr) {
+      console.warn("[weather] Could not write cache to disk:", writeErr);
+    }
 
     res.json({ source: "live", days, cachedUntil });
   } catch {
