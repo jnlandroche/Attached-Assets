@@ -628,7 +628,7 @@ export default function Money() {
 
   return (
     <div className="pb-24 animate-in fade-in duration-500">
-      <PageHeader eyebrow="Shared Expenses" title="The Kitty" subtitle="Every dollar, accounted for." />
+      <PageHeader eyebrow="Shared Expenses" title="The Tab" subtitle="Every dollar, accounted for." />
 
       <div className="px-5 space-y-6">
 
