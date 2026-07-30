@@ -60,8 +60,10 @@ function toUsviParts(iso: string): { date: string; time: string } {
 
 // Extract date/time from a user-saved datetime — no timezone conversion,
 // just read back the UTC numbers which equal exactly what was typed.
+// Force a Z suffix so the browser always parses as UTC, not local time.
 function naiveParts(iso: string): { date: string; time: string } {
-  const dt = new Date(iso);
+  const utcIso = /[Z+]/.test(iso.slice(10)) ? iso : iso + "Z";
+  const dt = new Date(utcIso);
   const y = dt.getUTCFullYear();
   const mo = String(dt.getUTCMonth() + 1).padStart(2, "0");
   const d = String(dt.getUTCDate()).padStart(2, "0");
@@ -71,8 +73,10 @@ function naiveParts(iso: string): { date: string; time: string } {
 }
 
 // Format a user-saved datetime for display — no timezone conversion.
+// Force a Z suffix so the browser always parses as UTC, not local time.
 function naiveDisplay(iso: string): string {
-  const dt = new Date(iso);
+  const utcIso = /[Z+]/.test(iso.slice(10)) ? iso : iso + "Z";
+  const dt = new Date(utcIso);
   const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const mon = MONTHS[dt.getUTCMonth()];
   const day = dt.getUTCDate();
