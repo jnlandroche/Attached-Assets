@@ -417,7 +417,12 @@ export default function Home() {
               ? Math.ceil((new Date(checkIn + "T00:00:00").getTime() - Date.now()) / (1000 * 60 * 60 * 24))
               : Infinity;
             const useLive = weatherData?.source === "live" && (weatherData.days?.length ?? 0) > 0 && daysUntilTrip <= 10;
-            const day0 = useLive ? weatherData!.days[0] : null;
+            // During the trip, prefer the forecast entry matching today's date
+            const todayLabel = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+            const todayDay = useLive
+              ? (weatherData!.days.find(d => d.date === todayLabel) ?? weatherData!.days[0])
+              : null;
+            const day0 = todayDay;
             const teaserEmoji = day0 ? day0.emoji : "☀️";
             const teaserText = day0
               ? `${day0.low}–${day0.high}°F · ${day0.label}`
