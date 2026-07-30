@@ -262,11 +262,15 @@ export default function Home() {
   const [birthdayPhotos, setBirthdayPhotos] = useState<string[]>([]);
   const [groupPhotos, setGroupPhotos] = useState<string[]>([]);
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/images/birthday-photos").then(r => r.json()).then(setBirthdayPhotos).catch(() => {});
     fetch("/api/images/group-photos").then(r => r.json()).then(setGroupPhotos).catch(() => {});
-    fetch("/api/weather").then(r => r.json()).then(setWeatherData).catch(() => {});
+    fetch("/api/weather")
+      .then(r => r.json())
+      .then((data) => { setWeatherData(data); setWeatherLoading(false); })
+      .catch(() => { setWeatherLoading(false); });
   }, []);
 
   // Hero uses destination (landscape) photos; fall back to group photos if none set
@@ -453,8 +457,18 @@ export default function Home() {
             </motion.p>
           )}
 
-          {/* Weather teaser */}
-          {(() => {
+          {/* Weather teaser pill */}
+          {weatherLoading ? (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6, duration: 0.5, ease }}
+              className="flex items-center gap-2.5 bg-white/[0.09] backdrop-blur-sm border border-white/[0.10] rounded-full px-4 py-2 self-start"
+            >
+              <div className="w-5 h-5 rounded-full bg-white/20 animate-pulse" />
+              <div className="h-3 w-36 rounded-full bg-white/20 animate-pulse" />
+            </motion.div>
+          ) : (() => {
             const daysUntilTrip = checkIn
               ? Math.ceil((new Date(checkIn + "T00:00:00").getTime() - Date.now()) / (1000 * 60 * 60 * 24))
               : Infinity;
@@ -469,9 +483,9 @@ export default function Home() {
               : "85–88°F · Mostly sunny, brief showers possible";
             return (
               <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6, duration: 0.5, ease }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.4, ease }}
                 className="flex items-center gap-2 bg-white/[0.09] backdrop-blur-sm border border-white/[0.10] rounded-full px-4 py-2 self-start"
               >
                 <span className="text-[15px] leading-none">{teaserEmoji}</span>
@@ -708,4 +722,3 @@ export default function Home() {
     </div>
   );
 }
-
