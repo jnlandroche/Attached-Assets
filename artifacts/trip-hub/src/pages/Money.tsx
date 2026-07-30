@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   useListBalances,
@@ -27,8 +27,11 @@ import {
   Trash2,
   X,
   Receipt,
+  CalendarClock,
+  ScrollText,
+  ArrowRightLeft,
 } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isAfter } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { AddExpenseDrawer } from "@/components/AddExpenseDrawer";
 import { toast } from "sonner";
@@ -302,6 +305,225 @@ function ExpenseCard({
   );
 }
 
+// ── Full ledger ───────────────────────────────────────────────────────────────
+function LedgerSection({
+  expenses,
+  settlements,
+  households,
+  balances,
+}: {
+  expenses: any[];
+  settlements: any[];
+  households: any[];
+  balances: any[];
+}) {
+  const today = new Date();
+
+  // Build combined chronological rows
+  type LedgerRow =
+    | { kind: "expense"; data: any; sortDate: string }
+    | { kind: "settlement"; data: any; sortDate: string };
+
+  const rows: LedgerRow[] = [
+    ...expenses.map((e) => ({ kind: "expense" as const, data: e, sortDate: e.date || "2000-01-01" })),
+    ...settlements.map((s) => ({
+      kind: "settlement" as const,
+      data: s,
+      sortDate: (s.paidAt || s.createdAt || "2000-01-01").slice(0, 10),
+    })),
+  ].sort((a, b) => (a.sortDate < b.sortDate ? -1 : a.sortDate > b.sortDate ? 1 : 0));
+
+  // Per-household: how much each household has actually put in (cash out)
+  const paidByHH: Record<number, number> = {};
+  for (const hh of households) paidByHH[hh.id] = 0;
+  for (const e of expenses) {
+    if (e.paidByHouseholdId) paidByHH[e.paidByHouseholdId] = (paidByHH[e.paidByHouseholdId] || 0) + Number(e.totalAmount);
+  }
+  for (const s of settlements) {
+    if (s.status === "paid") paidByHH[s.fromHouseholdId] = (paidByHH[s.fromHouseholdId] || 0) + Number(s.amount);
+  }
+
+  // Per-household: total share owed
+  const shareByHH: Record<number, number> = {};
+  for (const hh of households) shareByHH[hh.id] = 0;
+  for (const e of expenses) {
+    const shares: { householdId: number; shareAmount: number }[] = e.shares || [];
+    for (const s of shares) shareByHH[s.householdId] = (shareByHH[s.householdId] || 0) + Number(s.shareAmount);
+  }
+
+  const fmt$ = (n: number) =>
+    "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-40px" }}
+      transition={{ duration: 0.4, ease }}
+      className="bg-white rounded-3xl shadow-card overflow-hidden"
+    >
+      {/* Header */}
+      <div className="px-5 pt-5 pb-4 border-b border-sand-100 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-brass-50 flex items-center justify-center shrink-0">
+          <ScrollText className="w-4.5 h-4.5 text-brass-600" />
+        </div>
+        <div>
+          <p className="text-[10px] font-bold text-ink-400 tracking-[0.18em] uppercase">Transaction log</p>
+          <h2 className="font-display text-xl font-medium text-ink-950 leading-snug">Full Ledger</h2>
+        </div>
+      </div>
+
+      {/* Rows */}
+      <div className="divide-y divide-sand-50">
+        {rows.map((row, i) => {
+          if (row.kind === "expense") {
+            const e = row.data;
+            const isPaid = !!e.paidByHouseholdId;
+            const isDue = !isPaid && e.date && isAfter(parseISO(e.date), today);
+            const payer = households.find((h) => h.id === e.paidByHouseholdId);
+            const dateLabel = e.date ? format(parseISO(e.date), "MMM d") : "";
+            const shares: { householdId: number; shareAmount: number }[] = e.shares || [];
+
+            return (
+              <div key={`exp-${e.id}`} className="px-5 py-4">
+                <div className="flex items-start gap-3">
+                  {/* Status icon */}
+                  <div className={`mt-0.5 w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+                    isPaid ? "bg-lagoon-50" : isDue ? "bg-amber-50" : "bg-sand-100"
+                  }`}>
+                    {isPaid
+                      ? <CheckCircle2 className="w-4 h-4 text-lagoon-600" />
+                      : <CalendarClock className="w-4 h-4 text-amber-500" />}
+                  </div>
+
+                  {/* Description + meta */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-semibold text-ink-900 leading-snug">
+                      {e.description}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {isPaid ? (
+                        <>
+                          <span className="text-[11px] font-bold text-lagoon-600 bg-lagoon-50 px-2 py-0.5 rounded-full">
+                            ✓ Paid {dateLabel}
+                          </span>
+                          {payer && (
+                            <span className="text-[11px] text-ink-500">
+                              by <span className="font-semibold text-ink-700">{payer.name}</span>
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                          ⏰ Due {dateLabel}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Per-household splits */}
+                    {shares.length > 0 && (
+                      <div className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-1">
+                        {shares.map((s) => {
+                          const hh = households.find((h) => h.id === s.householdId);
+                          const isPayerRow = s.householdId === e.paidByHouseholdId;
+                          return (
+                            <div key={s.householdId} className="flex items-center justify-between">
+                              <span className={`text-[11px] truncate mr-1 ${isPayerRow ? "font-semibold text-ink-700" : "text-ink-400"}`}>
+                                {hh?.name?.split(" & ")[0] ?? "—"}
+                                {isPayerRow && " ✓"}
+                              </span>
+                              <span className={`text-[11px] tabular-nums shrink-0 ${isPayerRow ? "font-bold text-lagoon-600" : "text-ink-500"}`}>
+                                {fmt$(Number(s.shareAmount))}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Total */}
+                  <div className="shrink-0 text-right">
+                    <p className="font-display text-[18px] font-medium text-ink-950 leading-none">
+                      {fmt$(Number(e.totalAmount))}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Settlement row
+          const s = row.data;
+          const from = households.find((h) => h.id === s.fromHouseholdId);
+          const to = households.find((h) => h.id === s.toHouseholdId);
+          const dateLabel = s.paidAt ? format(parseISO(s.paidAt.slice(0, 10)), "MMM d") : "";
+          return (
+            <div key={`set-${s.id ?? i}`} className="px-5 py-4 bg-lagoon-50/30">
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-full bg-lagoon-100 flex items-center justify-center shrink-0">
+                  <ArrowRightLeft className="w-3.5 h-3.5 text-lagoon-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[13px] font-semibold text-ink-900">{from?.name?.split(" & ")[0]}</span>
+                    <ArrowRight className="w-3 h-3 text-ink-400 shrink-0" />
+                    <span className="text-[13px] font-semibold text-ink-900">{to?.name?.split(" & ")[0]}</span>
+                    <span className="text-[10px] text-ink-400 italic">(settlement)</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[11px] font-bold text-lagoon-600 bg-lagoon-50 px-2 py-0.5 rounded-full">
+                      ✓ Paid {dateLabel}
+                    </span>
+                  </div>
+                </div>
+                <p className="font-display text-[18px] font-medium text-lagoon-700 shrink-0">
+                  {fmt$(Number(s.amount))}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Per-household contribution summary */}
+      <div className="border-t border-sand-100 px-5 pt-4 pb-5">
+        <p className="text-[10px] font-bold text-ink-400 tracking-[0.18em] uppercase mb-3">Household summary</p>
+        <div className="space-y-3">
+          {households.map((hh) => {
+            const bal = balances.find((b: any) => b.householdId === hh.id);
+            const net = bal ? Number(bal.netBalance) : 0;
+            const paid = paidByHH[hh.id] ?? 0;
+            const share = shareByHH[hh.id] ?? 0;
+            return (
+              <div key={hh.id} className="flex items-start gap-3">
+                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${net >= 0 ? "bg-lagoon-500" : "bg-papaya-400"}`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold text-ink-900 truncate">{hh.name}</p>
+                  <div className="flex gap-3 mt-0.5 flex-wrap">
+                    <span className="text-[11px] text-ink-400">
+                      Paid out <span className="font-semibold text-ink-600">{fmt$(paid)}</span>
+                    </span>
+                    <span className="text-[11px] text-ink-400">
+                      Owes <span className="font-semibold text-ink-600">{fmt$(share)}</span>
+                    </span>
+                  </div>
+                </div>
+                <span className={`text-[14px] font-bold tabular-nums shrink-0 ${net >= 0 ? "text-lagoon-600" : "text-papaya-600"}`}>
+                  {net >= 0 ? "+" : "−"}{fmt$(net)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-[10px] text-ink-400 mt-3 leading-relaxed">
+          + = owed money back · − = still owes
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 export default function Money() {
   const { data: balances = [], isLoading: loadingB } = useListBalances();
@@ -316,6 +538,14 @@ export default function Money() {
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<"all" | CatKey>("all");
+  const [allSettlements, setAllSettlements] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/settlements")
+      .then((r) => r.json())
+      .then((data) => setAllSettlements(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
 
   const recommendations = recommendationsData?.recommendations || [];
   const pending = recommendationsData?.pending || [];
@@ -525,6 +755,14 @@ export default function Money() {
             ))
           )}
         </div>
+
+        {/* ── Full ledger ── */}
+        <LedgerSection
+          expenses={expenses}
+          settlements={allSettlements}
+          households={households as any[]}
+          balances={balances as any[]}
+        />
 
         {/* ── Who owes whom ── */}
         {recommendations.length > 0 && (
