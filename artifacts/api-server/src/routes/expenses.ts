@@ -5,6 +5,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { eq, desc } from "drizzle-orm";
 import { db, expenses, expenseShares, settlements, households } from "@workspace/db";
+import { openai } from "@workspace/integrations-openai-ai-server";
 
 const router: IRouter = Router();
 
@@ -27,6 +28,70 @@ router.post("/upload/receipt", upload.single("receipt"), (req, res): void => {
     return;
   }
   res.json({ url: `/api/uploads/${req.file.filename}` });
+});
+
+// ── AI receipt scanner ───────────────────────────────────────────────────────
+router.post("/expenses/scan-receipt", upload.single("receipt"), async (req, res): Promise<void> => {
+  if (!req.file) {
+    res.status(400).json({ error: "No file uploaded" });
+    return;
+  }
+
+  const receiptUrl = `/api/uploads/${req.file.filename}`;
+
+  try {
+    const imageData = fs.readFileSync(req.file.path);
+    const base64Image = imageData.toString("base64");
+    const mimeType = req.file.mimetype || "image/jpeg";
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-5.6-luna",
+      max_completion_tokens: 500,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: `data:${mimeType};base64,${base64Image}`, detail: "low" } as any,
+            },
+            {
+              type: "text",
+              text: `Extract key details from this receipt or bill image. Return ONLY a JSON object (no markdown, no extra text) with these exact fields:
+- "merchant": string — restaurant/store name, or "Unknown"
+- "totalAmount": string — the final total as a decimal number like "124.50". Look for "Total", "Grand Total", "Amount Due", "Balance Due". If unclear, return "0"
+- "date": string — in YYYY-MM-DD format if visible, otherwise "${new Date().toISOString().split("T")[0]}"
+- "description": string — one brief sentence describing the purchase, e.g. "Dinner at Woody's — seafood and cocktails"
+- "category": string — one of: "lodging", "trips_entertainment", "food_beverage", "other". Choose based on the type of merchant/purchase.
+
+Return ONLY the JSON object.`,
+            },
+          ],
+        },
+      ],
+    });
+
+    const content = response.choices[0]?.message?.content ?? "{}";
+    let parsed: Record<string, string> = {};
+    try {
+      parsed = JSON.parse(content.trim());
+    } catch {
+      parsed = { merchant: "", totalAmount: "", description: "", category: "other" };
+    }
+
+    res.json({ ...parsed, receiptUrl });
+  } catch (err) {
+    console.error("Receipt scan failed:", err);
+    res.json({
+      merchant: "",
+      totalAmount: "",
+      date: "",
+      description: "",
+      category: "other",
+      receiptUrl,
+      scanError: "Could not read receipt automatically — please fill in the details.",
+    });
+  }
 });
 
 router.post("/expenses", async (req, res): Promise<void> => {

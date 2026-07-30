@@ -15,6 +15,94 @@ import { HorizonWave } from "@/components/ui/HorizonWave";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
+// ── Mini October calendar ────────────────────────────────────────────────────
+function TripCalendar({ checkIn, checkOut }: { checkIn: string; checkOut: string }) {
+  const inDate = new Date(checkIn + "T00:00:00");
+  const outDate = new Date(checkOut + "T00:00:00");
+  const year = inDate.getFullYear();
+  const month = inDate.getMonth();
+  const firstDow = new Date(year, month, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const inDay = inDate.getDate();
+  const outDay = outDate.getDate();
+
+  const DOW = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+  const monthLabel = inDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const nights = Math.round((outDate.getTime() - inDate.getTime()) / (1000 * 60 * 60 * 24));
+
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  return (
+    <div className="bg-white rounded-3xl shadow-card p-5">
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <p className="text-[10px] font-bold text-ink-900/30 tracking-[0.18em] uppercase mb-0.5">Calendar</p>
+          <h2 className="font-display text-xl font-medium text-ink-950">{monthLabel}</h2>
+        </div>
+        <div className="text-right">
+          <p className="text-[13px] font-bold text-lagoon-600">Oct {inDay}–{outDay}</p>
+          <p className="text-xs text-ink-400">{nights} nights</p>
+        </div>
+      </div>
+
+      {/* Day-of-week headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {DOW.map((d) => (
+          <div key={d} className="h-7 flex items-center justify-center text-[10px] font-bold text-ink-300 uppercase">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Date cells */}
+      <div className="grid grid-cols-7">
+        {cells.map((day, i) => {
+          if (day === null) return <div key={`e${i}`} className="h-9" />;
+          const isIn = day === inDay;
+          const isOut = day === outDay;
+          const inRange = day > inDay && day < outDay;
+          // Determine which edges of the range row to round
+          const col = (i) % 7; // 0=Sun … 6=Sat
+          const rowStart = col === 0 || day === inDay + 1;
+          const rowEnd = col === 6 || day === outDay - 1;
+          return (
+            <div
+              key={day}
+              className={`h-9 flex items-center justify-center relative
+                ${inRange ? `bg-lagoon-600/10 ${rowStart ? "rounded-l-full" : ""} ${rowEnd ? "rounded-r-full" : ""}` : ""}
+              `}
+            >
+              {isIn || isOut ? (
+                <span className="w-8 h-8 rounded-full bg-lagoon-600 text-white flex items-center justify-center text-[13px] font-bold z-10">
+                  {day}
+                </span>
+              ) : inRange ? (
+                <span className="text-[13px] font-semibold text-lagoon-700">{day}</span>
+              ) : (
+                <span className="text-[13px] text-ink-400">{day}</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 mt-3 pt-3 border-t border-sand-100">
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-lagoon-600" />
+          <span className="text-[11px] text-ink-500">Check-in Oct {inDay}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-lagoon-600" />
+          <span className="text-[11px] text-ink-500">Check-out Oct {outDay}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function useCountdown(targetDateStr: string) {
   const getRemaining = () => {
     const target = new Date(targetDateStr + "T00:00:00");
@@ -238,6 +326,17 @@ export default function Home() {
               </p>
               <p className="text-sm text-white/80 leading-relaxed">{announcement}</p>
             </div>
+          </motion.div>
+        )}
+
+        {/* Mini trip calendar */}
+        {checkIn && checkOut && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease }}
+          >
+            <TripCalendar checkIn={checkIn} checkOut={checkOut} />
           </motion.div>
         )}
 
