@@ -265,18 +265,20 @@ export default function Travel() {
     e.preventDefault();
     if (!editGuest) return;
 
+    // Always treat manually-entered times as USVI time (UTC-4, no DST)
+    const USVI = "-04:00";
     let arrivalDatetime: string | null = null;
     if (editGuest.arrivalDate && editGuest.arrivalTime) {
-      arrivalDatetime = new Date(`${editGuest.arrivalDate}T${editGuest.arrivalTime}`).toISOString();
+      arrivalDatetime = new Date(`${editGuest.arrivalDate}T${editGuest.arrivalTime}${USVI}`).toISOString();
     } else if (editGuest.arrivalDate) {
-      arrivalDatetime = new Date(`${editGuest.arrivalDate}T00:00`).toISOString();
+      arrivalDatetime = new Date(`${editGuest.arrivalDate}T00:00${USVI}`).toISOString();
     }
 
     let departureDatetime: string | null = null;
     if (editGuest.departureDate && editGuest.departureTime) {
-      departureDatetime = new Date(`${editGuest.departureDate}T${editGuest.departureTime}`).toISOString();
+      departureDatetime = new Date(`${editGuest.departureDate}T${editGuest.departureTime}${USVI}`).toISOString();
     } else if (editGuest.departureDate) {
-      departureDatetime = new Date(`${editGuest.departureDate}T00:00`).toISOString();
+      departureDatetime = new Date(`${editGuest.departureDate}T00:00${USVI}`).toISOString();
     }
 
     updateGuest.mutate(
@@ -308,9 +310,10 @@ export default function Travel() {
     e.preventDefault();
     if (!name || !householdId) return toast.error("Name and Household required");
 
+    const USVI = "-04:00";
     let arrivalDatetime: string | null = null;
     if (arrivalDate && arrivalTime) {
-      arrivalDatetime = new Date(`${arrivalDate}T${arrivalTime}`).toISOString();
+      arrivalDatetime = new Date(`${arrivalDate}T${arrivalTime}${USVI}`).toISOString();
     }
 
     createGuest.mutate({
