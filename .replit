@@ -20,6 +20,10 @@ author = "agent"
 task = "workflow.run"
 args = "trip-hub-check"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "api-server-check"
+
 [[workflows.workflow]]
 name = "trip-hub-check"
 author = "agent"
@@ -27,6 +31,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/trip-hub run check"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "api-server-check"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run check"
 
 [workflows.workflow.metadata]
 isValidation = true
