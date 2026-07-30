@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Jordan's 40th — Trip Hub"
+version = "1.0.0"
+id = "artifacts/trip-hub"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24401
+
+[services.development]
+run = "pnpm --filter @workspace/trip-hub run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/trip-hub", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/trip-hub/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24401"
+BASE_PATH = "/"

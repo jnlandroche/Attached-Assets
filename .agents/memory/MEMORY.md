@@ -1,0 +1,1 @@
+- [Orval + Zod v3 integer conflict](orval-zod-integer.md) — Orval 8.23.0 generates `zod.int()` for `type: integer`; that's Zod v4 only; workspace uses Zod v3.

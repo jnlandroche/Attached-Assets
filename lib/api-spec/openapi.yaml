@@ -3,20 +3,28 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Jordan's 40th Trip Hub API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: households
+  - name: guests
+  - name: rooms
+  - name: expenses
+  - name: settlements
+  - name: guide
+  - name: contacts
+  - name: settings
+  - name: itinerary
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +32,622 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ---- Households ----
+  /households:
+    get:
+      operationId: listHouseholds
+      tags: [households]
+      summary: List all households
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Household"
+    post:
+      operationId: createHousehold
+      tags: [households]
+      summary: Create a household
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HouseholdInput"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Household"
+
+  /households/{id}:
+    patch:
+      operationId: updateHousehold
+      tags: [households]
+      summary: Update a household
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HouseholdUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Household"
+    delete:
+      operationId: deleteHousehold
+      tags: [households]
+      summary: Delete a household
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
+  # ---- Guests ----
+  /guests:
+    get:
+      operationId: listGuests
+      tags: [guests]
+      summary: List all guests
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Guest"
+    post:
+      operationId: createGuest
+      tags: [guests]
+      summary: Create a guest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuestInput"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Guest"
+
+  /guests/{id}:
+    patch:
+      operationId: updateGuest
+      tags: [guests]
+      summary: Update a guest
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuestUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Guest"
+    delete:
+      operationId: deleteGuest
+      tags: [guests]
+      summary: Delete a guest
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
+  # ---- Rooms ----
+  /rooms:
+    get:
+      operationId: listRooms
+      tags: [rooms]
+      summary: List all rooms
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Room"
+
+  /rooms/{id}:
+    patch:
+      operationId: updateRoom
+      tags: [rooms]
+      summary: Update a room
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+
+  # ---- Expenses ----
+  /expenses:
+    get:
+      operationId: listExpenses
+      tags: [expenses]
+      summary: List all expenses with shares
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Expense"
+    post:
+      operationId: createExpense
+      tags: [expenses]
+      summary: Create an expense with shares
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExpenseInput"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+
+  /expenses/{id}:
+    patch:
+      operationId: updateExpense
+      tags: [expenses]
+      summary: Update an expense
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExpenseUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+    delete:
+      operationId: deleteExpense
+      tags: [expenses]
+      summary: Delete an expense
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
+  # ---- Balances ----
+  /balances:
+    get:
+      operationId: listBalances
+      tags: [expenses]
+      summary: Per-household balance totals
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Balance"
+
+  # ---- Settlements ----
+  /settlements:
+    get:
+      operationId: listSettlements
+      tags: [settlements]
+      summary: List all settlements
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Settlement"
+    post:
+      operationId: createSettlement
+      tags: [settlements]
+      summary: Record a settlement payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettlementInput"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settlement"
+
+  /settlements/recommendations:
+    get:
+      operationId: listSettlementRecommendations
+      tags: [settlements]
+      summary: Minimum-transaction settlement recommendations
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettlementRecommendationsResponse"
+
+  /settlements/{id}:
+    patch:
+      operationId: updateSettlement
+      tags: [settlements]
+      summary: Mark a settlement as paid or pending
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettlementUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settlement"
+
+  # ---- Guide ----
+  /guide:
+    get:
+      operationId: listGuideEntries
+      tags: [guide]
+      summary: List guide entries, optionally filtered by type
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GuideEntry"
+    post:
+      operationId: createGuideEntry
+      tags: [guide]
+      summary: Create a guide entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuideEntryInput"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuideEntry"
+
+  /guide/{id}:
+    patch:
+      operationId: updateGuideEntry
+      tags: [guide]
+      summary: Update a guide entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuideEntryUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuideEntry"
+    delete:
+      operationId: deleteGuideEntry
+      tags: [guide]
+      summary: Delete a guide entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
+  # ---- Contacts ----
+  /contacts:
+    get:
+      operationId: listContacts
+      tags: [contacts]
+      summary: List all contacts
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Contact"
+    post:
+      operationId: createContact
+      tags: [contacts]
+      summary: Create a contact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactInput"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+
+  /contacts/{id}:
+    patch:
+      operationId: updateContact
+      tags: [contacts]
+      summary: Update a contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+    delete:
+      operationId: deleteContact
+      tags: [contacts]
+      summary: Delete a contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
+  # ---- Settings ----
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get all settings as key-value map
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsMap"
+    patch:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Upsert one or more settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsMap"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
+  # ---- Itinerary ----
+  /itinerary:
+    get:
+      operationId: listItineraryItems
+      tags: [itinerary]
+      summary: List all itinerary items
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ItineraryItem"
+    post:
+      operationId: createItineraryItem
+      tags: [itinerary]
+      summary: Create an itinerary item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItineraryItemInput"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItineraryItem"
+
+  /itinerary/{id}:
+    patch:
+      operationId: updateItineraryItem
+      tags: [itinerary]
+      summary: Update an itinerary item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItineraryItemUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItineraryItem"
+    delete:
+      operationId: deleteItineraryItem
+      tags: [itinerary]
+      summary: Delete an itinerary item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +658,384 @@ components:
       required:
         - status
 
+    OkResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok
+
+    # ---- Households ----
+    Household:
+      type: object
+      properties:
+        id:        { type: number }
+        name:      { type: string }
+        photoUrl:  { type: ["string", "null"] }
+        phone:     { type: ["string", "null"] }
+        email:     { type: ["string", "null"] }
+        notes:     { type: ["string", "null"] }
+        sortOrder: { type: ["number", "null"] }
+      required: [id, name]
+
+    HouseholdInput:
+      type: object
+      properties:
+        name:      { type: string }
+        photoUrl:  { type: ["string", "null"] }
+        phone:     { type: ["string", "null"] }
+        email:     { type: ["string", "null"] }
+        notes:     { type: ["string", "null"] }
+        sortOrder: { type: number }
+      required: [name]
+
+    HouseholdUpdate:
+      type: object
+      properties:
+        name:      { type: string }
+        photoUrl:  { type: ["string", "null"] }
+        phone:     { type: ["string", "null"] }
+        email:     { type: ["string", "null"] }
+        notes:     { type: ["string", "null"] }
+        sortOrder: { type: number }
+
+    # ---- Guests ----
+    Guest:
+      type: object
+      properties:
+        id:                   { type: number }
+        householdId:          { type: ["number", "null"] }
+        name:                 { type: string }
+        arrivalDatetime:      { type: ["string", "null"] }
+        airline:              { type: ["string", "null"] }
+        arrivalFlightNumber:  { type: ["string", "null"] }
+        arrivalAirport:       { type: ["string", "null"] }
+        departureDatetime:    { type: ["string", "null"] }
+        departureFlightNumber: { type: ["string", "null"] }
+        departureAirport:     { type: ["string", "null"] }
+        rentalCarInfo:        { type: ["string", "null"] }
+        transportationNeeds:  { type: ["string", "null"] }
+        flightStatus:         { type: ["string", "null"] }
+        notes:                { type: ["string", "null"] }
+      required: [id, name]
+
+    GuestInput:
+      type: object
+      properties:
+        householdId:          { type: ["number", "null"] }
+        name:                 { type: string }
+        arrivalDatetime:      { type: ["string", "null"] }
+        airline:              { type: ["string", "null"] }
+        arrivalFlightNumber:  { type: ["string", "null"] }
+        arrivalAirport:       { type: ["string", "null"] }
+        departureDatetime:    { type: ["string", "null"] }
+        departureFlightNumber: { type: ["string", "null"] }
+        departureAirport:     { type: ["string", "null"] }
+        rentalCarInfo:        { type: ["string", "null"] }
+        transportationNeeds:  { type: ["string", "null"] }
+        flightStatus:         { type: string }
+        notes:                { type: ["string", "null"] }
+      required: [name]
+
+    GuestUpdate:
+      type: object
+      properties:
+        householdId:          { type: ["number", "null"] }
+        name:                 { type: string }
+        arrivalDatetime:      { type: ["string", "null"] }
+        airline:              { type: ["string", "null"] }
+        arrivalFlightNumber:  { type: ["string", "null"] }
+        arrivalAirport:       { type: ["string", "null"] }
+        departureDatetime:    { type: ["string", "null"] }
+        departureFlightNumber: { type: ["string", "null"] }
+        departureAirport:     { type: ["string", "null"] }
+        rentalCarInfo:        { type: ["string", "null"] }
+        transportationNeeds:  { type: ["string", "null"] }
+        flightStatus:         { type: string }
+        notes:                { type: ["string", "null"] }
+
+    # ---- Rooms ----
+    Room:
+      type: object
+      properties:
+        id:                   { type: number }
+        name:                 { type: string }
+        bedConfig:            { type: ["string", "null"] }
+        bathLayout:           { type: ["string", "null"] }
+        occupancy:            { type: ["number", "null"] }
+        photoUrl:             { type: ["string", "null"] }
+        notes:                { type: ["string", "null"] }
+        assignedHouseholdId:  { type: ["number", "null"] }
+        sortOrder:            { type: ["number", "null"] }
+      required: [id, name]
+
+    RoomUpdate:
+      type: object
+      properties:
+        name:                 { type: string }
+        bedConfig:            { type: ["string", "null"] }
+        bathLayout:           { type: ["string", "null"] }
+        occupancy:            { type: ["number", "null"] }
+        photoUrl:             { type: ["string", "null"] }
+        notes:                { type: ["string", "null"] }
+        assignedHouseholdId:  { type: ["number", "null"] }
+        sortOrder:            { type: number }
+
+    # ---- Expenses ----
+    ExpenseShare:
+      type: object
+      properties:
+        householdId:  { type: number }
+        shareAmount:  { type: number }
+      required: [householdId, shareAmount]
+
+    Expense:
+      type: object
+      properties:
+        id:                     { type: number }
+        date:                   { type: string }
+        description:            { type: string }
+        category:               { type: string }
+        merchant:               { type: ["string", "null"] }
+        paidByHouseholdId:      { type: ["number", "null"] }
+        totalAmount:            { type: string }
+        allocationMethod:       { type: string }
+        participantHouseholdIds:
+          type: array
+          items: { type: number }
+        receiptUrl:             { type: ["string", "null"] }
+        notes:                  { type: ["string", "null"] }
+        shares:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExpenseShare"
+      required: [id, date, description, category, totalAmount, allocationMethod]
+
+    ExpenseInput:
+      type: object
+      properties:
+        date:                   { type: string }
+        description:            { type: string }
+        category:               { type: string }
+        merchant:               { type: ["string", "null"] }
+        paidByHouseholdId:      { type: ["number", "null"] }
+        totalAmount:            { type: string }
+        allocationMethod:       { type: string }
+        participantHouseholdIds:
+          type: array
+          items: { type: number }
+        receiptUrl:             { type: ["string", "null"] }
+        notes:                  { type: ["string", "null"] }
+        shares:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExpenseShare"
+      required: [date, description, category, totalAmount, allocationMethod]
+
+    ExpenseUpdate:
+      type: object
+      properties:
+        date:                   { type: string }
+        description:            { type: string }
+        category:               { type: string }
+        merchant:               { type: ["string", "null"] }
+        paidByHouseholdId:      { type: ["number", "null"] }
+        totalAmount:            { type: string }
+        allocationMethod:       { type: string }
+        participantHouseholdIds:
+          type: array
+          items: { type: number }
+        receiptUrl:             { type: ["string", "null"] }
+        notes:                  { type: ["string", "null"] }
+        shares:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExpenseShare"
+
+    # ---- Balances ----
+    Balance:
+      type: object
+      properties:
+        householdId:    { type: number }
+        householdName:  { type: string }
+        totalPaid:      { type: number }
+        totalShare:     { type: number }
+        netBalance:     { type: number }
+      required: [householdId, householdName, totalPaid, totalShare, netBalance]
+
+    # ---- Settlements ----
+    Settlement:
+      type: object
+      properties:
+        id:               { type: number }
+        fromHouseholdId:  { type: number }
+        toHouseholdId:    { type: number }
+        amount:           { type: string }
+        status:           { type: string }
+        createdAt:        { type: ["string", "null"] }
+        paidAt:           { type: ["string", "null"] }
+      required: [id, fromHouseholdId, toHouseholdId, amount, status]
+
+    SettlementInput:
+      type: object
+      properties:
+        fromHouseholdId:  { type: number }
+        toHouseholdId:    { type: number }
+        amount:           { type: string }
+        status:           { type: string }
+      required: [fromHouseholdId, toHouseholdId, amount]
+
+    SettlementUpdate:
+      type: object
+      properties:
+        status:           { type: string }
+
+    SettlementRecommendation:
+      type: object
+      properties:
+        fromHouseholdId:  { type: number }
+        fromName:         { type: string }
+        toHouseholdId:    { type: number }
+        toName:           { type: string }
+        amount:           { type: number }
+      required: [fromHouseholdId, fromName, toHouseholdId, toName, amount]
+
+    SettlementRecommendationsResponse:
+      type: object
+      properties:
+        recommendations:
+          type: array
+          items:
+            $ref: "#/components/schemas/SettlementRecommendation"
+        pending:
+          type: array
+          items:
+            $ref: "#/components/schemas/Settlement"
+      required: [recommendations, pending]
+
+    # ---- Guide ----
+    GuideEntry:
+      type: object
+      properties:
+        id:                 { type: number }
+        type:               { type: string }
+        name:               { type: string }
+        subtitle:           { type: ["string", "null"] }
+        priceTier:          { type: ["string", "null"] }
+        distanceFromVilla:  { type: ["string", "null"] }
+        notes:              { type: ["string", "null"] }
+        photoUrl:           { type: ["string", "null"] }
+        mapUrl:             { type: ["string", "null"] }
+        reservationStatus:  { type: ["string", "null"] }
+        websiteUrl:         { type: ["string", "null"] }
+        favorited:          { type: ["boolean", "null"] }
+        sortOrder:          { type: ["number", "null"] }
+      required: [id, type, name]
+
+    GuideEntryInput:
+      type: object
+      properties:
+        type:               { type: string }
+        name:               { type: string }
+        subtitle:           { type: ["string", "null"] }
+        priceTier:          { type: ["string", "null"] }
+        distanceFromVilla:  { type: ["string", "null"] }
+        notes:              { type: ["string", "null"] }
+        photoUrl:           { type: ["string", "null"] }
+        mapUrl:             { type: ["string", "null"] }
+        reservationStatus:  { type: ["string", "null"] }
+        websiteUrl:         { type: ["string", "null"] }
+        favorited:          { type: boolean }
+        sortOrder:          { type: number }
+      required: [type, name]
+
+    GuideEntryUpdate:
+      type: object
+      properties:
+        type:               { type: string }
+        name:               { type: string }
+        subtitle:           { type: ["string", "null"] }
+        priceTier:          { type: ["string", "null"] }
+        distanceFromVilla:  { type: ["string", "null"] }
+        notes:              { type: ["string", "null"] }
+        photoUrl:           { type: ["string", "null"] }
+        mapUrl:             { type: ["string", "null"] }
+        reservationStatus:  { type: ["string", "null"] }
+        websiteUrl:         { type: ["string", "null"] }
+        favorited:          { type: boolean }
+        sortOrder:          { type: number }
+
+    # ---- Contacts ----
+    Contact:
+      type: object
+      properties:
+        id:        { type: number }
+        category:  { type: string }
+        name:      { type: string }
+        phone:     { type: ["string", "null"] }
+        address:   { type: ["string", "null"] }
+        notes:     { type: ["string", "null"] }
+        sortOrder: { type: ["number", "null"] }
+      required: [id, category, name]
+
+    ContactInput:
+      type: object
+      properties:
+        category:  { type: string }
+        name:      { type: string }
+        phone:     { type: ["string", "null"] }
+        address:   { type: ["string", "null"] }
+        notes:     { type: ["string", "null"] }
+        sortOrder: { type: number }
+      required: [category, name]
+
+    ContactUpdate:
+      type: object
+      properties:
+        category:  { type: string }
+        name:      { type: string }
+        phone:     { type: ["string", "null"] }
+        address:   { type: ["string", "null"] }
+        notes:     { type: ["string", "null"] }
+        sortOrder: { type: number }
+
+    # ---- Settings ----
+    SettingsMap:
+      type: object
+      additionalProperties:
+        type: ["string", "null"]
+
+    # ---- Itinerary ----
+    ItineraryItem:
+      type: object
+      properties:
+        id:          { type: number }
+        dayLabel:    { type: string }
+        time:        { type: ["string", "null"] }
+        title:       { type: string }
+        description: { type: ["string", "null"] }
+        category:    { type: ["string", "null"] }
+        sortOrder:   { type: ["number", "null"] }
+      required: [id, dayLabel, title]
+
+    ItineraryItemInput:
+      type: object
+      properties:
+        dayLabel:    { type: string }
+        time:        { type: ["string", "null"] }
+        title:       { type: string }
+        description: { type: ["string", "null"] }
+        category:    { type: string }
+        sortOrder:   { type: number }
+      required: [dayLabel, title]
+
+    ItineraryItemUpdate:
+      type: object
+      properties:
+        dayLabel:    { type: string }
+        time:        { type: ["string", "null"] }
+        title:       { type: string }
+        description: { type: ["string", "null"] }
+        category:    { type: string }
+        sortOrder:   { type: number }
