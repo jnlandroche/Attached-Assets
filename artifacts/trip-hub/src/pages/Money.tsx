@@ -25,6 +25,7 @@ import {
   Clock,
   ArrowRight,
   Trash2,
+  Pencil,
   X,
   Receipt,
   CalendarClock,
@@ -134,13 +135,16 @@ function ExpenseCard({
   expense,
   households,
   onDelete,
+  onEdit,
 }: {
   expense: any;
   households: any[];
   onDelete: (id: number) => void;
+  onEdit: (expense: any) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const cat = normalizeCategory(expense.category);
   const config = CATS[cat];
   const CatIcon = config.icon;
@@ -285,16 +289,44 @@ function ExpenseCard({
                   </div>
                 </div>
 
-                {/* Delete */}
-                <div className="pt-1">
+                {/* Edit / Delete */}
+                <div className="pt-1 flex items-center gap-4">
                   <button
                     type="button"
-                    onClick={() => onDelete(expense.id)}
-                    className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-500 transition-colors font-medium"
+                    onClick={() => onEdit(expense)}
+                    className="flex items-center gap-1.5 text-xs text-ink-500 hover:text-ink-700 transition-colors font-medium"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Delete expense
+                    <Pencil className="w-3.5 h-3.5" />
+                    Edit expense
                   </button>
+                  {confirmingDelete ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-ink-500">Delete this expense?</span>
+                      <button
+                        type="button"
+                        onClick={() => onDelete(expense.id)}
+                        className="text-xs font-bold text-white bg-red-500 px-2.5 py-1 rounded-lg"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingDelete(false)}
+                        className="text-xs font-medium text-ink-500"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingDelete(true)}
+                      className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-500 transition-colors font-medium"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete expense
+                    </button>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -547,14 +579,19 @@ export default function Money() {
   const queryClient = useQueryClient();
 
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<any | null>(null);
   const [activeFilter, setActiveFilter] = useState<"all" | CatKey>("all");
   const [allSettlements, setAllSettlements] = useState<any[]>([]);
 
-  useEffect(() => {
+  const refetchSettlements = () => {
     fetch("/api/settlements")
       .then((r) => r.json())
       .then((data) => setAllSettlements(Array.isArray(data) ? data : []))
       .catch(() => {});
+  };
+
+  useEffect(() => {
+    refetchSettlements();
   }, []);
 
   const recommendations = recommendationsData?.recommendations || [];
@@ -603,7 +640,7 @@ export default function Money() {
       (p: any) => p.fromHouseholdId === rec.fromHouseholdId && p.toHouseholdId === rec.toHouseholdId
     );
     const invalidate = () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
+      refetchSettlements();
       queryClient.invalidateQueries({ queryKey: getListBalancesQueryKey() });
       queryClient.invalidateQueries({ queryKey: getListSettlementRecommendationsQueryKey() });
       toast.success("Marked as paid ✓");
@@ -634,6 +671,10 @@ export default function Money() {
         toast.success("Expense deleted");
       },
     });
+  };
+
+  const handleEdit = (expense: any) => {
+    setEditingExpense(expense);
   };
 
   return (
@@ -761,6 +802,7 @@ export default function Money() {
                 expense={e}
                 households={households as any[]}
                 onDelete={handleDelete}
+                onEdit={handleEdit}
               />
             ))
           )}
@@ -840,6 +882,11 @@ export default function Money() {
       </motion.button>
 
       <AddExpenseDrawer open={isAddOpen} onOpenChange={setIsAddOpen} />
+      <AddExpenseDrawer
+        open={!!editingExpense}
+        onOpenChange={(open) => !open && setEditingExpense(null)}
+        editExpense={editingExpense}
+      />
     </div>
   );
 }
