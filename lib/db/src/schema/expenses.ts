@@ -1,44 +1,433 @@
+import { Router, type IRouter } from "express";
+import multer from "multer";
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
+import { eq, desc } from "drizzle-orm";
+import { db, expenses, expenseShares, settlements, households } from "@workspace/db";
+import { openai } from "@workspace/integrations-openai-ai-server";
 import {
-  pgTable,
-  serial,
-  text,
-  integer,
-  numeric,
-  date,
-  timestamp,
-} from "drizzle-orm/pg-core";
-import { households } from "./households";
+  CreateExpenseBody,
+  UpdateExpenseParams,
+  UpdateExpenseBody,
+  DeleteExpenseParams,
+  CreateSettlementBody,
+  UpdateSettlementParams,
+  UpdateSettlementBody,
+} from "@workspace/api-zod";
 
-export const expenses = pgTable("expenses", {
-  id: serial("id").primaryKey(),
-  date: date("date").notNull(),
-  description: text("description").notNull(),
-  category: text("category").notNull(),
-  merchant: text("merchant"),
-  paidByHouseholdId: integer("paid_by_household_id").references(
-    () => households.id,
-    { onDelete: "set null" }
-  ),
-  totalAmount: numeric("total_amount", { precision: 10, scale: 2 }).notNull(),
-  allocationMethod: text("allocation_method").notNull(),
-  participantHouseholdIds: text("participant_household_ids"),
-  receiptUrl: text("receipt_url"),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow(),
+const router: IRouter = Router();
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const uploadsDir = path.resolve(__dirname, "../../uploads");
+fs.mkdirSync(uploadsDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: uploadsDir,
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname) || ".jpg";
+    cb(null, `receipt-${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`);
+  },
+});
+const upload = multer({ storage, limits: { fileSize: 8 * 1024 * 1024 } });
+
+router.post("/upload/receipt", upload.single("receipt"), (req, res): void => {
+  if (!req.file) {
+    res.status(400).json({ error: "No file uploaded" });
+    return;
+  }
+  res.json({ url: `/api/uploads/${req.file.filename}` });
 });
 
-export const expenseShares = pgTable("expense_shares", {
-  id: serial("id").primaryKey(),
-  expenseId: integer("expense_id")
-    .references(() => expenses.id, { onDelete: "cascade" })
-    .notNull(),
-  householdId: integer("household_id")
-    .references(() => households.id, { onDelete: "cascade" })
-    .notNull(),
-  shareAmount: numeric("share_amount", { precision: 10, scale: 2 }).notNull(),
+// ── AI receipt scanner ───────────────────────────────────────────────────────
+router.post("/expenses/scan-receipt", upload.single("receipt"), async (req, res): Promise<void> => {
+  if (!req.file) {
+    res.status(400).json({ error: "No file uploaded" });
+    return;
+  }
+
+  const receiptUrl = `/api/uploads/${req.file.filename}`;
+
+  try {
+    const imageData = fs.readFileSync(req.file.path);
+    const base64Image = imageData.toString("base64");
+    const mimeType = req.file.mimetype || "image/jpeg";
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-5.6-luna",
+      max_completion_tokens: 500,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: `data:${mimeType};base64,${base64Image}`, detail: "low" } as any,
+            },
+            {
+              type: "text",
+              text: `Extract key details from this receipt or bill image. Return ONLY a JSON object (no markdown, no extra text) with these exact fields:
+- "merchant": string — restaurant/store name, or "Unknown"
+- "totalAmount": string — the final total as a decimal number like "124.50". Look for "Total", "Grand Total", "Amount Due", "Balance Due". If unclear, return "0"
+- "date": string — in YYYY-MM-DD format if visible, otherwise "${new Date().toISOString().split("T")[0]}"
+- "description": string — one brief sentence describing the purchase, e.g. "Dinner at Woody's — seafood and cocktails"
+- "category": string — one of: "lodging", "trips_entertainment", "food_beverage", "other". Choose based on the type of merchant/purchase.
+
+Return ONLY the JSON object.`,
+            },
+          ],
+        },
+      ],
+    });
+
+    const content = response.choices[0]?.message?.content ?? "{}";
+    let parsed: Record<string, string> = {};
+    try {
+      parsed = JSON.parse(content.trim());
+    } catch {
+      parsed = { merchant: "", totalAmount: "", description: "", category: "other" };
+    }
+
+    res.json({ ...parsed, receiptUrl });
+  } catch (err) {
+    console.error("Receipt scan failed:", err);
+    res.json({
+      merchant: "",
+      totalAmount: "",
+      date: "",
+      description: "",
+      category: "other",
+      receiptUrl,
+      scanError: "Could not read receipt automatically — please fill in the details.",
+    });
+  }
 });
 
-export type Expense = typeof expenses.$inferSelect;
-export type InsertExpense = typeof expenses.$inferInsert;
-export type ExpenseShare = typeof expenseShares.$inferSelect;
-export type InsertExpenseShare = typeof expenseShares.$inferInsert;
+router.post("/expenses", async (req, res): Promise<void> => {
+  const parsed = CreateExpenseBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { shares, participantHouseholdIds, ...expenseData } = parsed.data;
+
+  const totalAmount = Number(expenseData.totalAmount ?? 0);
+  if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+    res.status(400).json({ error: "totalAmount must be a positive number" });
+    return;
+  }
+  // Defense in depth: an expense with a payer must have shares that
+  // reconcile to the total, or balances silently go wrong (see the
+  // equal-split bug this replaced). "No split" expenses (no payer yet)
+  // are allowed through with no shares.
+  if (expenseData.paidByHouseholdId != null) {
+    const shareSum = (shares ?? []).reduce((sum, s) => sum + Number(s.shareAmount), 0);
+    if (!shares || shares.length === 0 || Math.abs(shareSum - totalAmount) > 0.01) {
+      res.status(400).json({
+        error: `Expense shares ($${shareSum.toFixed(2)}) must sum to totalAmount ($${totalAmount.toFixed(2)})`,
+      });
+      return;
+    }
+  }
+
+  const [expense] = await db
+    .insert(expenses)
+    .values({
+      ...expenseData,
+      totalAmount: String(totalAmount),
+      allocationMethod: expenseData.allocationMethod ?? "custom",
+      participantHouseholdIds: JSON.stringify(participantHouseholdIds ?? []),
+    })
+    .returning();
+
+  if (Array.isArray(shares) && shares.length > 0) {
+    await db.insert(expenseShares).values(
+      shares.map((s: { householdId: number; shareAmount: number }) => ({
+        expenseId: expense.id,
+        householdId: s.householdId,
+        shareAmount: String(s.shareAmount),
+      }))
+    );
+  }
+
+  res.json(expense);
+});
+
+router.get("/expenses", async (_req, res): Promise<void> => {
+  const rows = await db.select().from(expenses).orderBy(desc(expenses.date));
+  const allShares = await db.select().from(expenseShares);
+  const sharesByExpense: Record<number, typeof allShares> = {};
+  for (const s of allShares) {
+    sharesByExpense[s.expenseId] ??= [];
+    sharesByExpense[s.expenseId].push(s);
+  }
+  res.json(
+    rows.map((r) => ({
+      ...r,
+      participantHouseholdIds: r.participantHouseholdIds
+        ? JSON.parse(r.participantHouseholdIds)
+        : [],
+      shares: (sharesByExpense[r.id] ?? []).map((s) => ({
+        householdId: s.householdId,
+        shareAmount: Number(s.shareAmount),
+      })),
+    }))
+  );
+});
+
+router.patch("/expenses/:id", async (req, res): Promise<void> => {
+  const params = UpdateExpenseParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const parsed = UpdateExpenseBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const id = params.data.id;
+  const { shares, participantHouseholdIds, ...expenseData } = parsed.data;
+
+  if (expenseData.totalAmount != null && expenseData.paidByHouseholdId !== null) {
+    const totalAmount = Number(expenseData.totalAmount);
+    const shareSum = (shares ?? []).reduce((sum, s) => sum + Number(s.shareAmount), 0);
+    if (shares !== undefined && (shares.length === 0 || Math.abs(shareSum - totalAmount) > 0.01)) {
+      res.status(400).json({
+        error: `Expense shares ($${shareSum.toFixed(2)}) must sum to totalAmount ($${totalAmount.toFixed(2)})`,
+      });
+      return;
+    }
+  }
+
+  const updateData: Record<string, unknown> = { ...expenseData };
+  if (participantHouseholdIds !== undefined) {
+    updateData.participantHouseholdIds = JSON.stringify(participantHouseholdIds);
+  }
+
+  const [expense] = await db
+    .update(expenses)
+    .set(updateData)
+    .where(eq(expenses.id, id))
+    .returning();
+
+  if (Array.isArray(shares)) {
+    await db.delete(expenseShares).where(eq(expenseShares.expenseId, id));
+    if (shares.length > 0) {
+      await db.insert(expenseShares).values(
+        shares.map((s: { householdId: number; shareAmount: number }) => ({
+          expenseId: id,
+          householdId: s.householdId,
+          shareAmount: String(s.shareAmount),
+        }))
+      );
+    }
+  }
+
+  res.json(expense);
+});
+
+router.delete("/expenses/:id", async (req, res): Promise<void> => {
+  const params = DeleteExpenseParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  await db.delete(expenses).where(eq(expenses.id, params.data.id));
+  res.json({ ok: true });
+});
+
+// -----------------------------------------------------------------------
+// Balances + minimum-transaction settlement recommendations
+// -----------------------------------------------------------------------
+async function computeBalances() {
+  const hh = await db.select().from(households);
+  const allShares = await db.select().from(expenseShares);
+  const allExpenses = await db.select().from(expenses);
+  const allSettlements = await db
+    .select()
+    .from(settlements)
+    .where(eq(settlements.status, "paid"));
+
+  const totals: Record<number, { paid: number; share: number }> = {};
+  for (const h of hh) {
+    totals[h.id] = { paid: 0, share: 0 };
+  }
+
+  for (const e of allExpenses) {
+    if (e.paidByHouseholdId && totals[e.paidByHouseholdId]) {
+      totals[e.paidByHouseholdId].paid += Number(e.totalAmount);
+    }
+  }
+
+  for (const s of allShares) {
+    if (totals[s.householdId]) {
+      totals[s.householdId].share += Number(s.shareAmount);
+    }
+  }
+
+  // Apply paid settlements: fromHousehold paid toHousehold, reduces from's debt
+  for (const s of allSettlements) {
+    const amount = Number(s.amount);
+    // from paid to, so from gets credit (reduce share effectively)
+    if (totals[s.fromHouseholdId]) totals[s.fromHouseholdId].paid += amount;
+    if (totals[s.toHouseholdId]) totals[s.toHouseholdId].paid -= amount;
+  }
+
+  const balances = hh.map((h) => ({
+    householdId: h.id,
+    householdName: h.name,
+    totalPaid: totals[h.id]?.paid ?? 0,
+    totalShare: totals[h.id]?.share ?? 0,
+    netBalance: (totals[h.id]?.paid ?? 0) - (totals[h.id]?.share ?? 0),
+  }));
+
+  const net = hh.map((h) => ({
+    id: h.id,
+    name: h.name,
+    amount: (totals[h.id]?.paid ?? 0) - (totals[h.id]?.share ?? 0),
+  }));
+
+  return { hh, net, balances };
+}
+
+function minimumTransactions(
+  net: { id: number; name: string; amount: number }[],
+  _nameById: Record<number, string>
+) {
+  const creditors = net
+    .filter((n) => n.amount > 0.005)
+    .map((n) => ({ ...n }))
+    .sort((a, b) => b.amount - a.amount);
+  const debtors = net
+    .filter((n) => n.amount < -0.005)
+    .map((n) => ({ ...n, amount: -n.amount }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const recs: {
+    fromHouseholdId: number;
+    fromName: string;
+    toHouseholdId: number;
+    toName: string;
+    amount: number;
+  }[] = [];
+
+  let ci = 0;
+  let di = 0;
+  while (ci < creditors.length && di < debtors.length) {
+    const c = creditors[ci];
+    const d = debtors[di];
+    const amount = Math.min(c.amount, d.amount);
+    recs.push({
+      fromHouseholdId: d.id,
+      fromName: d.name,
+      toHouseholdId: c.id,
+      toName: c.name,
+      amount: Math.round(amount * 100) / 100,
+    });
+    c.amount -= amount;
+    d.amount -= amount;
+    if (c.amount < 0.005) ci++;
+    if (d.amount < 0.005) di++;
+  }
+  return recs;
+}
+
+router.get("/balances", async (_req, res): Promise<void> => {
+  const { balances } = await computeBalances();
+  res.json(balances);
+});
+
+router.get("/settlements/recommendations", async (_req, res): Promise<void> => {
+  // Use PAID expenses only for settlement math.
+  // Unpaid expenses (paidByHouseholdId = null) add shares to everyone but
+  // credit nobody, so net balances don't sum to zero and the min-transaction
+  // algorithm runs out of creditors before reaching all debtors.
+  const hh = await db.select().from(households);
+  const allExpenses = await db.select().from(expenses);
+  const allShares = await db.select().from(expenseShares);
+  const allSettlements = await db
+    .select()
+    .from(settlements)
+    .where(eq(settlements.status, "paid"));
+
+  const paidExpenseIds = new Set(
+    allExpenses.filter((e) => e.paidByHouseholdId != null).map((e) => e.id)
+  );
+
+  const totals: Record<number, { paid: number; share: number }> = {};
+  for (const h of hh) totals[h.id] = { paid: 0, share: 0 };
+
+  for (const e of allExpenses) {
+    if (e.paidByHouseholdId && totals[e.paidByHouseholdId]) {
+      totals[e.paidByHouseholdId].paid += Number(e.totalAmount);
+    }
+  }
+
+  for (const s of allShares) {
+    if (paidExpenseIds.has(s.expenseId) && totals[s.householdId]) {
+      totals[s.householdId].share += Number(s.shareAmount);
+    }
+  }
+
+  for (const s of allSettlements) {
+    const amount = Number(s.amount);
+    if (totals[s.fromHouseholdId]) totals[s.fromHouseholdId].paid += amount;
+    if (totals[s.toHouseholdId]) totals[s.toHouseholdId].paid -= amount;
+  }
+
+  const net = hh.map((h) => ({
+    id: h.id,
+    name: h.name,
+    amount: (totals[h.id]?.paid ?? 0) - (totals[h.id]?.share ?? 0),
+  }));
+
+  const nameById = Object.fromEntries(hh.map((h) => [h.id, h.name]));
+  const recs = minimumTransactions(net, nameById);
+  const pending = await db
+    .select()
+    .from(settlements)
+    .where(eq(settlements.status, "pending"));
+  res.json({ recommendations: recs, pending });
+});
+
+router.get("/settlements", async (_req, res): Promise<void> => {
+  const rows = await db.select().from(settlements).orderBy(desc(settlements.createdAt));
+  res.json(rows);
+});
+
+router.post("/settlements", async (req, res): Promise<void> => {
+  const parsed = CreateSettlementBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const status = parsed.data.status ?? "pending";
+  const [row] = await db
+    .insert(settlements)
+    .values({ ...parsed.data, status, paidAt: status === "paid" ? new Date() : null })
+    .returning();
+  res.json(row);
+});
+
+router.patch("/settlements/:id", async (req, res): Promise<void> => {
+  const params = UpdateSettlementParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const parsed = UpdateSettlementBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { status } = parsed.data;
+  const [row] = await db
+    .update(settlements)
+    .set({ status, paidAt: status === "paid" ? new Date() : null })
+    .where(eq(settlements.id, params.data.id))
+    .returning();
+  res.json(row);
+});
+
+export default router;
