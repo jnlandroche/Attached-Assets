@@ -1,6 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   useCreateExpense,
+  useUpdateExpense,
   useListHouseholds,
   getListExpensesQueryKey,
   getListBalancesQueryKey,
@@ -26,15 +27,38 @@ function reset(setters: Array<(v: any) => void>, defaults: any[]) {
   setters.forEach((s, i) => s(defaults[i]));
 }
 
+// Splits `totalAmount` evenly across `householdIds`, rounded to the cent.
+// Any leftover pennies from rounding are handed to the first N households
+// so the shares always sum EXACTLY to totalAmount (never leaves a balance
+// that doesn't reconcile).
+function splitEqually(
+  totalAmount: number,
+  householdIds: number[]
+): { householdId: number; shareAmount: number }[] {
+  if (householdIds.length === 0) return [];
+  const totalCents = Math.round(totalAmount * 100);
+  const base = Math.floor(totalCents / householdIds.length);
+  const remainder = totalCents - base * householdIds.length;
+  return householdIds.map((householdId, i) => ({
+    householdId,
+    shareAmount: (base + (i < remainder ? 1 : 0)) / 100,
+  }));
+}
+
 export function AddExpenseDrawer({
   open,
   onOpenChange,
+  editExpense,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** When provided, the drawer edits this expense instead of creating a new one. */
+  editExpense?: any | null;
 }) {
+  const isEditing = !!editExpense;
   const { data: households = [] } = useListHouseholds();
   const createExpense = useCreateExpense();
+  const updateExpense = useUpdateExpense();
   const queryClient = useQueryClient();
 
   const [amount, setAmount] = useState("");
@@ -52,6 +76,39 @@ export function AddExpenseDrawer({
   const [scanning, setScanning] = useState(false);
   const [scanned, setScanned] = useState(false);
   const scanInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editExpense) return;
+    setAmount(String(editExpense.totalAmount ?? ""));
+    setMerchant(editExpense.merchant ?? "");
+    setDescription(editExpense.description ?? "");
+    setCategory(editExpense.category ?? "food_beverage");
+    setPaidBy(editExpense.paidByHouseholdId ?? "");
+    setAllocationMethod(editExpense.allocationMethod ?? "equal_all");
+    setDate(editExpense.date ?? format(new Date(), "yyyy-MM-dd"));
+    setReceiptUrl(editExpense.receiptUrl ?? "");
+
+    const shares: { householdId: number; shareAmount: number }[] = editExpense.shares || [];
+    const totalAmount = Number(editExpense.totalAmount ?? 0);
+    if (editExpense.allocationMethod === "percentage") {
+      const next: Record<number, string> = {};
+      for (const s of shares) {
+        next[s.householdId] = totalAmount > 0 ? ((s.shareAmount / totalAmount) * 100).toFixed(2) : "0";
+      }
+      setCustomShares(next);
+    } else if (editExpense.allocationMethod === "fixed") {
+      const next: Record<number, string> = {};
+      for (const s of shares) next[s.householdId] = String(s.shareAmount);
+      setCustomShares(next);
+    } else {
+      setCustomShares({});
+    }
+    setSelectedHouseholds(
+      editExpense.allocationMethod === "equal_selected"
+        ? shares.map((s) => s.householdId)
+        : []
+    );
+  }, [editExpense]);
 
   const handleClose = () => {
     onOpenChange(false);
@@ -121,16 +178,28 @@ export function AddExpenseDrawer({
 
     if (allocationMethod === "equal_all") {
       participants = (households as any[]).map((h: any) => h.id);
+      shares = splitEqually(totalAmount, participants);
+    } else if (allocationMethod === "equal_selected") {
+      if (selectedHouseholds.length === 0) {
+        return toast.error("Pick at least one household to split with");
+      }
+      shares = splitEqually(totalAmount, participants);
     } else if (allocationMethod === "single_payer") {
       participants = [Number(paidBy)];
+      // Payer's own share equals the full amount, so this expense is a wash
+      // for balances — nobody else owes anything, and it doesn't inflate
+      // what the payer is "owed" by the group.
+      shares = [{ householdId: Number(paidBy), shareAmount: totalAmount }];
     } else if (allocationMethod === "percentage" || allocationMethod === "fixed") {
       let sum = 0;
+      participants = [];
       for (const h of households as any[]) {
         if (customShares[h.id]) {
           let val = parseFloat(customShares[h.id]);
           if (allocationMethod === "percentage") val = (val / 100) * totalAmount;
           if (val > 0) {
-            shares.push({ householdId: h.id, shareAmount: val });
+            shares.push({ householdId: h.id, shareAmount: Math.round(val * 100) / 100 });
+            participants.push(h.id);
             sum += val;
           }
         }
@@ -140,31 +209,32 @@ export function AddExpenseDrawer({
       }
     }
 
-    createExpense.mutate(
-      {
-        data: {
-          description,
-          merchant: merchant || null,
-          totalAmount: totalAmount.toString(),
-          category,
-          paidByHouseholdId: Number(paidBy),
-          allocationMethod,
-          participantHouseholdIds: participants,
-          shares: shares.length > 0 ? shares : undefined,
-          date,
-          receiptUrl: receiptUrl || null,
-        },
-      },
-      {
-        onSuccess: () => {
-          toast.success("Expense added");
-          queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListBalancesQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListSettlementRecommendationsQueryKey() });
-          handleClose();
-        },
-      }
-    );
+    const payload = {
+      description,
+      merchant: merchant || null,
+      totalAmount: totalAmount.toString(),
+      category,
+      paidByHouseholdId: Number(paidBy),
+      allocationMethod,
+      participantHouseholdIds: participants,
+      shares,
+      date,
+      receiptUrl: receiptUrl || null,
+    };
+
+    const onSuccess = () => {
+      toast.success(isEditing ? "Expense updated" : "Expense added");
+      queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getListBalancesQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getListSettlementRecommendationsQueryKey() });
+      handleClose();
+    };
+
+    if (isEditing) {
+      updateExpense.mutate({ id: editExpense.id, data: payload }, { onSuccess });
+    } else {
+      createExpense.mutate({ data: payload }, { onSuccess });
+    }
   };
 
   return (
@@ -172,7 +242,7 @@ export function AddExpenseDrawer({
       <DrawerContent>
         <div className="px-2 max-h-[85vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="font-display text-2xl text-ink-950">Add Expense</h2>
+            <h2 className="font-display text-2xl text-ink-950">{isEditing ? "Edit Expense" : "Add Expense"}</h2>
             <button type="button" onClick={handleClose} className="text-ink-400 tap p-1">
               <X className="w-5 h-5" />
             </button>
@@ -465,10 +535,14 @@ export function AddExpenseDrawer({
 
             <button
               type="submit"
-              disabled={createExpense.isPending}
+              disabled={createExpense.isPending || updateExpense.isPending}
               className="w-full bg-lagoon-600 text-white font-bold py-4 rounded-xl shadow-md tap mt-2 mb-8"
             >
-              {createExpense.isPending ? "Saving…" : "Save Expense"}
+              {createExpense.isPending || updateExpense.isPending
+                ? "Saving…"
+                : isEditing
+                ? "Save Changes"
+                : "Save Expense"}
             </button>
           </form>
         </div>
